@@ -7,17 +7,4 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
-  define: {
-    global: 'globalThis',
-  },
-  resolve: {
-    alias: {
-      crypto: 'crypto-browserify',
-    },
-  },
-  server: {
-    hmr: {
-      overlay: false,
-    },
-  },
 });

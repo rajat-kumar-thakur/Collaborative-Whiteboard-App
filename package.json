@@ -1,48 +1,34 @@
 {
-  "name": "vite-react-typescript-starter",
+  "name": "collaborative-drawing-app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "server": "node server.js",
-    "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node src/server/websocketServer.js"
   },
   "dependencies": {
-    "@next/font": "^14.2.15",
-    "@types/node": "^24.0.14",
-    "bcryptjs": "^3.0.2",
-    "clsx": "^2.1.1",
-    "cors": "^2.8.5",
-    "crypto-browserify": "^3.12.0",
-    "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2",
-    "konva": "^9.3.22",
     "lucide-react": "^0.344.0",
-    "mongodb": "^6.17.0",
-    "mongoose": "^8.16.4",
-    "next": "^15.4.2",
-    "next-auth": "^4.24.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-konva": "^19.0.7",
-    "react-router-dom": "^7.7.0",
-    "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1",
-    "tailwind-merge": "^3.3.1",
-    "zustand": "^5.0.6"
+    "ws": "^8.18.0",
+    "uuid": "^10.0.0",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5",
+    "perfect-freehand": "^1.2.2",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
-    "@types/mongodb": "^4.0.6",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "@types/ws": "^8.5.10",
+    "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
-    "concurrently": "^8.2.2",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
@@ -51,11 +37,6 @@
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
-    "vite": "^5.4.11"
-  },
-  "description": "This app lets you collaboratw with other users on a coomon whiteboard",
-  "main": "eslint.config.js",
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+    "vite": "^5.4.2"
+  }
 }
