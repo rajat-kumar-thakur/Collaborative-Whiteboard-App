@@ -8,6 +8,7 @@ interface DrawingCanvasProps {
   selectedColor: string;
   onElementAdded: (element: DrawingElement) => void;
   onCursorMove: (position: Point) => void;
+  onElementRemoved: (elementId: string) => void;
   userId: string;
 }
 
@@ -18,6 +19,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   selectedColor,
   onElementAdded,
   onCursorMove,
+  onElementRemoved,
   userId
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -30,8 +32,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [showTextInput, setShowTextInput] = useState(false);
   const [textPosition, setTextPosition] = useState<Point>({ x: 0, y: 0 });
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [erasedElements, setErasedElements] = useState<Set<string>>(new Set());
 
   const drawElement = useCallback((ctx: CanvasRenderingContext2D, element: DrawingElement) => {
+    // Skip drawing if element was erased
+    if (erasedElements.has(element.id)) return;
+
     ctx.save();
     ctx.strokeStyle = element.style.stroke;
     ctx.lineWidth = element.style.strokeWidth;
@@ -121,7 +127,76 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         break;
     }
     ctx.restore();
-  }, [selectedElement]);
+  }, [selectedElement, erasedElements]);
+
+  const checkEraserIntersection = useCallback((eraserPath: Point[], element: DrawingElement): boolean => {
+    const eraserRadius = 10; // Eraser hit radius
+    
+    for (const eraserPoint of eraserPath) {
+      switch (element.type) {
+        case 'pen':
+          // Check if eraser point is near any line segment
+          for (let i = 0; i < element.points.length - 1; i++) {
+            const p1 = element.points[i];
+            const p2 = element.points[i + 1];
+            if (distanceToLineSegment(eraserPoint, p1, p2) < eraserRadius) {
+              return true;
+            }
+          }
+          break;
+
+        case 'rectangle':
+          if (element.points.length >= 2) {
+            const [start, end] = element.points;
+            const minX = Math.min(start.x, end.x);
+            const maxX = Math.max(start.x, end.x);
+            const minY = Math.min(start.y, end.y);
+            const maxY = Math.max(start.y, end.y);
+            
+            // Check if eraser point is inside or near the rectangle
+            if (eraserPoint.x >= minX - eraserRadius && eraserPoint.x <= maxX + eraserRadius &&
+                eraserPoint.y >= minY - eraserRadius && eraserPoint.y <= maxY + eraserRadius) {
+              return true;
+            }
+          }
+          break;
+
+        case 'circle':
+          if (element.points.length >= 2) {
+            const [start, end] = element.points;
+            const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+            const distance = Math.sqrt(Math.pow(eraserPoint.x - start.x, 2) + Math.pow(eraserPoint.y - start.y, 2));
+            if (distance <= radius + eraserRadius) {
+              return true;
+            }
+          }
+          break;
+
+        case 'arrow':
+          if (element.points.length >= 2) {
+            const [start, end] = element.points;
+            if (distanceToLineSegment(eraserPoint, start, end) < eraserRadius) {
+              return true;
+            }
+          }
+          break;
+
+        case 'text':
+          if (element.points.length > 0) {
+            const textPos = element.points[0];
+            const textWidth = (element.text?.length || 0) * 10;
+            const textHeight = 16;
+            
+            if (eraserPoint.x >= textPos.x - eraserRadius && eraserPoint.x <= textPos.x + textWidth + eraserRadius &&
+                eraserPoint.y >= textPos.y - textHeight - eraserRadius && eraserPoint.y <= textPos.y + eraserRadius) {
+              return true;
+            }
+          }
+          break;
+      }
+    }
+    return false;
+  }, []);
 
   const drawCursors = useCallback((ctx: CanvasRenderingContext2D) => {
     users.forEach(user => {
@@ -162,16 +237,30 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     // Draw current path if drawing
     if (isDrawing && currentPath.length > 1) {
       ctx.save();
-      ctx.strokeStyle = selectedColor;
-      ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.beginPath();
-      ctx.moveTo(currentPath[0].x, currentPath[0].y);
-      for (let i = 1; i < currentPath.length; i++) {
-        ctx.lineTo(currentPath[i].x, currentPath[i].y);
+      if (selectedTool === 'eraser') {
+        // Draw eraser preview
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 20;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(currentPath[0].x, currentPath[0].y);
+        for (let i = 1; i < currentPath.length; i++) {
+          ctx.lineTo(currentPath[i].x, currentPath[i].y);
+        }
+        ctx.stroke();
+      } else {
+        ctx.strokeStyle = selectedColor;
+        ctx.lineWidth = 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(currentPath[0].x, currentPath[0].y);
+        for (let i = 1; i < currentPath.length; i++) {
+          ctx.lineTo(currentPath[i].x, currentPath[i].y);
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
       ctx.restore();
     }
 
@@ -179,7 +268,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     // Draw cursors (not affected by viewport)
     drawCursors(ctx);
-  }, [elements, isDrawing, currentPath, viewport, drawElement, drawCursors, selectedColor]);
+  }, [elements, isDrawing, currentPath, viewport, drawElement, drawCursors, selectedColor, selectedTool]);
 
   useEffect(() => {
     redraw();
@@ -331,7 +420,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       return;
     }
 
-    if (selectedTool === 'pen') {
+    if (selectedTool === 'pen' || selectedTool === 'eraser') {
       setIsDrawing(true);
       setCurrentPath([pos]);
     } else if (['rectangle', 'circle', 'arrow'].includes(selectedTool)) {
@@ -361,6 +450,25 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (isDrawing) {
       if (selectedTool === 'pen') {
         setCurrentPath(prev => [...prev, pos]);
+      } else if (selectedTool === 'eraser') {
+        const newPath = [...currentPath, pos];
+        setCurrentPath(newPath);
+        
+        // Check for eraser intersections
+        const newErasedElements = new Set(erasedElements);
+        let hasChanges = false;
+
+        elements.forEach(element => {
+          if (!erasedElements.has(element.id) && checkEraserIntersection(newPath, element)) {
+            newErasedElements.add(element.id);
+            onElementRemoved(element.id);
+            hasChanges = true;
+          }
+        });
+
+        if (hasChanges) {
+          setErasedElements(newErasedElements);
+        }
       } else if (['rectangle', 'circle', 'arrow'].includes(selectedTool)) {
         setCurrentPath(prev => [prev[0], pos]);
       }
@@ -374,19 +482,22 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
 
     if (isDrawing && currentPath.length > 0) {
-      const element: DrawingElement = {
-        id: `${userId}-${Date.now()}`,
-        type: selectedTool as 'pen' | 'rectangle' | 'circle' | 'arrow' | 'text',
-        points: [...currentPath],
-        style: {
-          stroke: selectedColor,
-          strokeWidth: 2
-        },
-        userId,
-        timestamp: Date.now()
-      };
+      if (selectedTool === 'pen') {
+        const element: DrawingElement = {
+          id: `${userId}-${Date.now()}`,
+          type: 'pen',
+          points: [...currentPath],
+          style: {
+            stroke: selectedColor,
+            strokeWidth: 2
+          },
+          userId,
+          timestamp: Date.now()
+        };
 
-      onElementAdded(element);
+        onElementAdded(element);
+      }
+      // For eraser, we don't create elements, we just remove them
       setCurrentPath([]);
       setIsDrawing(false);
     }
@@ -438,7 +549,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       <canvas
         ref={canvasRef}
         className={`absolute inset-0 ${
-          selectedTool === 'select' ? 'cursor-pointer' : 'cursor-crosshair'
+          selectedTool === 'select' ? 'cursor-pointer' : 
+          selectedTool === 'eraser' ? 'cursor-crosshair' : 'cursor-crosshair'
         }`}
         style={{ background: '#1a1a1a' }}
         onMouseDown={handleMouseDown}

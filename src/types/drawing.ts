@@ -12,7 +12,7 @@ export interface User {
 
 export interface DrawingElement {
   id: string;
-  type: 'pen' | 'rectangle' | 'circle' | 'arrow' | 'text';
+  type: 'pen' | 'eraser' | 'rectangle' | 'circle' | 'arrow' | 'text';
   points: Point[];
   style: {
     stroke: string;
@@ -37,7 +37,7 @@ export interface DrawingState {
 
 export interface WebSocketMessage {
   type: 'initial_state' | 'element_added' | 'element_updated' | 'element_deleted' | 'cursor_moved' | 'user_joined' | 'user_left';
-  data: DrawingElement | DrawingState | { position: Point } | User;
+  data: DrawingElement | DrawingState | { position: Point } | User | string;
   userId: string;
   timestamp: number;
 }

@@ -12,7 +12,8 @@ import {
   RotateCcw,
   Download,
   Palette,
-  Trash2
+  Trash2,
+  Eraser
 } from 'lucide-react';
 
 interface ToolbarProps {
@@ -31,6 +32,7 @@ interface ToolbarProps {
 const tools = [
   { id: 'select', icon: MousePointer2, label: 'Select' },
   { id: 'pen', icon: Pen, label: 'Pen' },
+  { id: 'eraser', icon: Eraser, label: 'Eraser' },
   { id: 'rectangle', icon: Square, label: 'Rectangle' },
   { id: 'circle', icon: Circle, label: 'Circle' },
   { id: 'arrow', icon: ArrowRight, label: 'Arrow' },
@@ -65,10 +67,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-10">
       <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl">
-        <div className="max-w-5xl mx-auto px-10">
-          <div className="flex items-center justify-between h-12">
+        <div className="max-w-7xl mx-auto px-3">
+          <div className="flex items-center justify-between h-14">
             {/* Left Section - Drawing Tools */}
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-6">
               {/* Drawing Tools */}
               <div className="flex items-center space-x-1">
                 {tools.map(tool => {
@@ -77,34 +79,34 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     <button
                       key={tool.id}
                       onClick={() => onToolSelect(tool.id)}
-                      className={`p-2 rounded-lg transition-all duration-200 ${
+                      className={`p-2.5 rounded-lg transition-all duration-200 ${
                         selectedTool === tool.id
                           ? 'bg-blue-600 text-white shadow-md'
                           : 'text-gray-300 hover:text-white hover:bg-gray-700'
                       }`}
                       title={tool.label}
                     >
-                      <Icon size={18} />
+                      <Icon size={20} />
                     </button>
                   );
                 })}
               </div>
 
               {/* Divider */}
-              <div className="w-px h-6 bg-gray-600"></div>
+              <div className="w-px h-8 bg-gray-600"></div>
 
               {/* Color Picker */}
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-1">
                 <div className="flex items-center space-x-2">
-                  <Palette size={16} className="text-gray-400" />
-                  <span className="text-xs text-gray-400 font-medium">Color</span>
+                  <Palette size={18} className="text-gray-400" />
+                  <span className="text-sm text-gray-400 font-medium">Color</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   {colors.map(color => (
                     <button
                       key={color}
                       onClick={() => onColorSelect(color)}
-                      className={`w-6 h-6 rounded-md border-2 transition-all duration-200 ${
+                      className={`w-7 h-7 rounded-md border-2 transition-all duration-200 ${
                         selectedColor === color
                           ? 'border-white scale-110 shadow-md'
                           : 'border-gray-600 hover:border-gray-400 hover:scale-105'
@@ -118,61 +120,61 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </div>
 
             {/* Right Section - Controls & Status */}
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-4">
               {/* View Controls */}
               <div className="flex items-center space-x-1">
                 <button
                   onClick={onZoomOut}
-                  className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
+                  className="p-2.5 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
                   title="Zoom Out"
                 >
-                  <ZoomOut size={18} />
+                  <ZoomOut size={20} />
                 </button>
                 <button
                   onClick={onZoomIn}
-                  className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
+                  className="p-2.5 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
                   title="Zoom In"
                 >
-                  <ZoomIn size={18} />
+                  <ZoomIn size={20} />
                 </button>
                 <button
                   onClick={onReset}
-                  className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
+                  className="p-2.5 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
                   title="Reset View"
                 >
-                  <RotateCcw size={18} />
+                  <RotateCcw size={20} />
                 </button>
               </div>
 
               {/* Divider */}
-              <div className="w-px h-6 bg-gray-600"></div>
+              <div className="w-px h-8 bg-gray-600"></div>
 
               {/* Utility Controls */}
               <div className="flex items-center space-x-1">
                 <button
                   onClick={onExport}
-                  className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
+                  className="p-2.5 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
                   title="Export Drawing"
                 >
-                  <Download size={18} />
+                  <Download size={20} />
                 </button>
                 
                 <button
                   onClick={onClearCanvas}
-                  className="p-2 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-900/20 transition-all duration-200"
+                  className="p-2.5 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-900/20 transition-all duration-200"
                   title="Clear Canvas"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={20} />
                 </button>
               </div>
 
               {/* Divider */}
-              <div className="w-px h-6 bg-gray-600"></div>
+              <div className="w-px h-8 bg-gray-600"></div>
               
               {/* User Count */}
-              <div className="flex items-center space-x-2 px-4 py-1.5 bg-gray-800 rounded-lg border border-gray-600 min-w-[80px]">
-                <Users size={16} className="text-green-400" />
-                <span className="text-xs text-gray-300 font-medium">{userCount}</span>
+              <div className="flex items-center space-x-2 px-4 py-2 bg-gray-800 rounded-lg border border-gray-600 min-w-[110px]">
+                <Users size={18} className="text-green-400" />
+                <span className="text-sm text-gray-300 font-medium">{userCount}</span>
                 <span className="text-xs text-gray-500">online</span>
               </div>
             </div>

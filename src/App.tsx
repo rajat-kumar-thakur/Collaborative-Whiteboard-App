@@ -17,6 +17,7 @@ function App() {
     selectedColor,
     viewport,
     addElement,
+    removeElement,
     setUsers,
     updateUser,
     setSelectedTool,
@@ -45,6 +46,12 @@ function App() {
         }
         break;
 
+      case 'element_deleted':
+        if (message.userId !== userId) {
+          removeElement(message.data as string);
+        }
+        break;
+
       case 'cursor_moved':
         if (message.userId !== userId) {
           const cursorData = message.data as { position: Point };
@@ -60,7 +67,7 @@ function App() {
         console.log('User left:', message.data);
         break;
     }
-  }, [userId, addElement, setUsers, updateUser]);
+  }, [userId, addElement, removeElement, setUsers, updateUser]);
 
   const { isConnected, users: wsUsers, sendMessage } = useWebSocket(userId, handleWebSocketMessage);
 
@@ -73,6 +80,14 @@ function App() {
     sendMessage({
       type: 'element_added',
       data: element
+    });
+  };
+
+  const handleElementRemoved = (elementId: string) => {
+    removeElement(elementId);
+    sendMessage({
+      type: 'element_deleted',
+      data: elementId
     });
   };
 
@@ -125,6 +140,7 @@ function App() {
         selectedColor={selectedColor}
         onElementAdded={handleElementAdded}
         onCursorMove={handleCursorMove}
+        onElementRemoved={handleElementRemoved}
         userId={userId}
       />
 
@@ -156,6 +172,7 @@ function App() {
             <p>• Select tools from the toolbar above</p>
             <p>• Use text tool to add text labels</p>
             <p>• Use select tool to highlight elements</p>
+            <p>• Use eraser to remove drawing elements</p>
           </div>
         </div>
       </div>
