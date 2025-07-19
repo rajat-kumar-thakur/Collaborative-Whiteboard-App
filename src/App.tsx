@@ -4,7 +4,7 @@ import { Toolbar } from './components/Toolbar';
 import { UserList } from './components/UserList';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useDrawingStore } from './store/drawingStore';
-import { WebSocketMessage, DrawingElement, Point } from './types/drawing';
+import { WebSocketMessage, DrawingElement, Point, DrawingState } from './types/drawing';
 import { exportCanvasAsImage, downloadImage } from './utils/export';
 
 function App() {
@@ -27,25 +27,28 @@ function App() {
 
   const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
     switch (message.type) {
-      case 'initial_state':
+      case 'initial_state': {
         // Handle initial state from server
-        if (message.data.elements) {
-          message.data.elements.forEach((element: DrawingElement) => addElement(element));
+        const stateData = message.data as DrawingState;
+        if (stateData.elements) {
+          stateData.elements.forEach((element: DrawingElement) => addElement(element));
         }
-        if (message.data.users) {
-          setUsers(message.data.users);
+        if (stateData.users) {
+          setUsers(stateData.users);
         }
         break;
+      }
 
       case 'element_added':
         if (message.userId !== userId) {
-          addElement(message.data);
+          addElement(message.data as DrawingElement);
         }
         break;
 
       case 'cursor_moved':
         if (message.userId !== userId) {
-          updateUser(message.userId, { cursor: message.data.position });
+          const cursorData = message.data as { position: Point };
+          updateUser(message.userId, { cursor: cursorData.position });
         }
         break;
 
@@ -96,6 +99,11 @@ function App() {
     downloadImage(dataUrl, `collaborative-drawing-${Date.now()}.png`);
   };
 
+  const handleClearCanvas = () => {
+    // Clear all elements from the store
+    useDrawingStore.getState().clearCanvas();
+  };
+
   return (
     <div className="w-full h-screen bg-gray-900 overflow-hidden relative">
       {/* Connection Status */}
@@ -131,20 +139,23 @@ function App() {
         onZoomOut={handleZoomOut}
         onReset={resetViewport}
         onExport={handleExport}
+        onClearCanvas={handleClearCanvas}
       />
 
       {/* User List */}
       <UserList users={users} currentUserId={userId} />
 
       {/* Instructions */}
-      <div className="fixed bottom-4 left-4 z-10">
-        <div className="bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg p-4 shadow-xl max-w-md">
-          <h3 className="text-sm font-medium text-white mb-2">Controls</h3>
-          <div className="text-xs text-gray-400 space-y-1">
+      <div className="fixed bottom-6 left-6 z-10">
+        <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg p-4 shadow-xl max-w-md">
+          <h3 className="text-sm font-medium text-white mb-3">Controls</h3>
+          <div className="text-xs text-gray-400 space-y-2">
             <p>• Click and drag to draw with selected tool</p>
             <p>• Ctrl+Click or middle mouse to pan</p>
             <p>• Mouse wheel to zoom</p>
             <p>• Select tools from the toolbar above</p>
+            <p>• Use text tool to add text labels</p>
+            <p>• Use select tool to highlight elements</p>
           </div>
         </div>
       </div>

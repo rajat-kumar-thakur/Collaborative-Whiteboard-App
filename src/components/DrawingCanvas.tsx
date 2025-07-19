@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Point, DrawingElement, User } from '../types/drawing';
-import { useDrawingStore } from '../store/drawingStore';
 
 interface DrawingCanvasProps {
   elements: DrawingElement[];
@@ -27,6 +26,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState<Point>({ x: 0, y: 0 });
+  const [textInput, setTextInput] = useState<string>('');
+  const [showTextInput, setShowTextInput] = useState(false);
+  const [textPosition, setTextPosition] = useState<Point>({ x: 0, y: 0 });
+  const [selectedElement, setSelectedElement] = useState<string | null>(null);
 
   const drawElement = useCallback((ctx: CanvasRenderingContext2D, element: DrawingElement) => {
     ctx.save();
@@ -34,6 +37,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     ctx.lineWidth = element.style.strokeWidth;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+
+    // Highlight selected element
+    if (selectedElement === element.id) {
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = element.style.strokeWidth + 2;
+    }
 
     switch (element.type) {
       case 'pen':
@@ -112,7 +121,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
         break;
     }
     ctx.restore();
-  }, []);
+  }, [selectedElement]);
 
   const drawCursors = useCallback((ctx: CanvasRenderingContext2D) => {
     users.forEach(user => {
@@ -170,7 +179,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
 
     // Draw cursors (not affected by viewport)
     drawCursors(ctx);
-  }, [elements, isDrawing, currentPath, viewport, drawElement, drawCursors]);
+  }, [elements, isDrawing, currentPath, viewport, drawElement, drawCursors, selectedColor]);
 
   useEffect(() => {
     redraw();
@@ -203,6 +212,103 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     };
   };
 
+  const findElementAtPoint = (point: Point): DrawingElement | null => {
+    // Check elements in reverse order (top to bottom)
+    for (let i = elements.length - 1; i >= 0; i--) {
+      const element = elements[i];
+      if (isPointInElement(point, element)) {
+        return element;
+      }
+    }
+    return null;
+  };
+
+  const isPointInElement = (point: Point, element: DrawingElement): boolean => {
+    switch (element.type) {
+      case 'pen':
+        // Check if point is near any line segment
+        for (let i = 0; i < element.points.length - 1; i++) {
+          const p1 = element.points[i];
+          const p2 = element.points[i + 1];
+          if (distanceToLineSegment(point, p1, p2) < 10) {
+            return true;
+          }
+        }
+        return false;
+
+      case 'rectangle':
+        if (element.points.length >= 2) {
+          const [start, end] = element.points;
+          const minX = Math.min(start.x, end.x);
+          const maxX = Math.max(start.x, end.x);
+          const minY = Math.min(start.y, end.y);
+          const maxY = Math.max(start.y, end.y);
+          return point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY;
+        }
+        return false;
+
+      case 'circle':
+        if (element.points.length >= 2) {
+          const [start, end] = element.points;
+          const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+          const distance = Math.sqrt(Math.pow(point.x - start.x, 2) + Math.pow(point.y - start.y, 2));
+          return distance <= radius;
+        }
+        return false;
+
+      case 'arrow':
+        if (element.points.length >= 2) {
+          const [start, end] = element.points;
+          return distanceToLineSegment(point, start, end) < 10;
+        }
+        return false;
+
+      case 'text':
+        if (element.points.length > 0) {
+          const textPos = element.points[0];
+          // Approximate text bounds
+          const textWidth = (element.text?.length || 0) * 10;
+          const textHeight = 16;
+          return point.x >= textPos.x && point.x <= textPos.x + textWidth &&
+                 point.y >= textPos.y - textHeight && point.y <= textPos.y;
+        }
+        return false;
+
+      default:
+        return false;
+    }
+  };
+
+  const distanceToLineSegment = (point: Point, p1: Point, p2: Point): number => {
+    const A = point.x - p1.x;
+    const B = point.y - p1.y;
+    const C = p2.x - p1.x;
+    const D = p2.y - p1.y;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+
+    if (lenSq !== 0) param = dot / lenSq;
+
+    let xx, yy;
+
+    if (param < 0) {
+      xx = p1.x;
+      yy = p1.y;
+    } else if (param > 1) {
+      xx = p2.x;
+      yy = p2.y;
+    } else {
+      xx = p1.x + param * C;
+      yy = p1.y + param * D;
+    }
+
+    const dx = point.x - xx;
+    const dy = point.y - yy;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     const pos = getMousePos(e);
 
@@ -210,6 +316,18 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       // Middle mouse or Ctrl+click for panning
       setIsPanning(true);
       setLastPanPoint({ x: e.clientX, y: e.clientY });
+      return;
+    }
+
+    if (selectedTool === 'select') {
+      const element = findElementAtPoint(pos);
+      setSelectedElement(element?.id || null);
+      return;
+    }
+
+    if (selectedTool === 'text') {
+      setTextPosition(pos);
+      setShowTextInput(true);
       return;
     }
 
@@ -249,7 +367,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }
   };
 
-  const handleMouseUp = (e: React.MouseEvent) => {
+  const handleMouseUp = () => {
     if (isPanning) {
       setIsPanning(false);
       return;
@@ -258,7 +376,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (isDrawing && currentPath.length > 0) {
       const element: DrawingElement = {
         id: `${userId}-${Date.now()}`,
-        type: selectedTool as any,
+        type: selectedTool as 'pen' | 'rectangle' | 'circle' | 'arrow' | 'text',
         points: [...currentPath],
         style: {
           stroke: selectedColor,
@@ -285,15 +403,70 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     }));
   };
 
+  const handleTextSubmit = () => {
+    if (textInput.trim()) {
+      const element: DrawingElement = {
+        id: `${userId}-${Date.now()}`,
+        type: 'text',
+        points: [textPosition],
+        style: {
+          stroke: selectedColor,
+          strokeWidth: 2
+        },
+        text: textInput.trim(),
+        userId,
+        timestamp: Date.now()
+      };
+
+      onElementAdded(element);
+      setTextInput('');
+      setShowTextInput(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleTextSubmit();
+    } else if (e.key === 'Escape') {
+      setTextInput('');
+      setShowTextInput(false);
+    }
+  };
+
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 cursor-crosshair"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onWheel={handleWheel}
-      style={{ background: '#1a1a1a' }}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className={`absolute inset-0 ${
+          selectedTool === 'select' ? 'cursor-pointer' : 'cursor-crosshair'
+        }`}
+        style={{ background: '#1a1a1a' }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onWheel={handleWheel}
+      />
+      
+      {/* Text Input Overlay */}
+      {showTextInput && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="bg-gray-800 border border-gray-600 p-4 rounded-lg">
+            <input
+              type="text"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onBlur={handleTextSubmit}
+              autoFocus
+              className="bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+              placeholder="Enter text..."
+            />
+            <div className="text-xs text-gray-400 mt-2">
+              Press Enter to confirm, Escape to cancel
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

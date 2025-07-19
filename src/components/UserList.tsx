@@ -10,7 +10,7 @@ interface UserListProps {
 export const UserList: React.FC<UserListProps> = ({ users, currentUserId }) => {
   return (
     <div className="fixed top-4 right-4 z-10">
-      <div className="bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg p-4 shadow-xl max-w-xs">
+      <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg p-4 shadow-xl max-w-xs">
         <div className="flex items-center space-x-2 mb-3">
           <Users size={18} className="text-green-400" />
           <h3 className="text-sm font-medium text-white">Active Users ({users.length})</h3>

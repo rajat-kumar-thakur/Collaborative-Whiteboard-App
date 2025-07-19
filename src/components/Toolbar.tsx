@@ -11,7 +11,8 @@ import {
   ZoomOut,
   RotateCcw,
   Download,
-  Palette
+  Palette,
+  Trash2
 } from 'lucide-react';
 
 interface ToolbarProps {
@@ -24,6 +25,7 @@ interface ToolbarProps {
   onZoomOut: () => void;
   onReset: () => void;
   onExport: () => void;
+  onClearCanvas: () => void;
 }
 
 const tools = [
@@ -47,6 +49,7 @@ const colors = [
   '#ffffff', // White
   '#6b7280', // Gray
 ];
+
 export const Toolbar: React.FC<ToolbarProps> = ({
   selectedTool,
   onToolSelect,
@@ -56,93 +59,122 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onZoomIn,
   onZoomOut,
   onReset,
-  onExport
+  onExport,
+  onClearCanvas
 }) => {
   return (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-10">
-      <div className="bg-gray-900/90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 shadow-xl">
-        <div className="flex items-center space-x-2">
-          {/* Drawing Tools */}
-          <div className="flex items-center space-x-1 border-r border-gray-700 pr-3">
-            {tools.map(tool => {
-              const Icon = tool.icon;
-              return (
-                <button
-                  key={tool.id}
-                  onClick={() => onToolSelect(tool.id)}
-                  className={`p-2 rounded-md transition-all duration-200 ${
-                    selectedTool === tool.id
-                      ? 'bg-blue-600 text-white shadow-lg'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-800'
-                  }`}
-                  title={tool.label}
-                >
-                  <Icon size={18} />
-                </button>
-              );
-            })}
-          </div>
+      <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-xl shadow-2xl">
+        <div className="max-w-5xl mx-auto px-10">
+          <div className="flex items-center justify-between h-12">
+            {/* Left Section - Drawing Tools */}
+            <div className="flex items-center space-x-2">
+              {/* Drawing Tools */}
+              <div className="flex items-center space-x-1">
+                {tools.map(tool => {
+                  const Icon = tool.icon;
+                  return (
+                    <button
+                      key={tool.id}
+                      onClick={() => onToolSelect(tool.id)}
+                      className={`p-2 rounded-lg transition-all duration-200 ${
+                        selectedTool === tool.id
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                      }`}
+                      title={tool.label}
+                    >
+                      <Icon size={18} />
+                    </button>
+                  );
+                })}
+              </div>
 
-          {/* Color Picker */}
-          <div className="flex items-center space-x-1 border-r border-gray-700 pr-3">
-            <div className="flex items-center space-x-1">
-              <Palette size={16} className="text-gray-400" />
-              <div className="flex flex-wrap gap-1 max-w-[120px]">
-                {colors.map(color => (
-                  <button
-                    key={color}
-                    onClick={() => onColorSelect(color)}
-                    className={`w-6 h-6 rounded-full border-2 transition-all duration-200 ${
-                      selectedColor === color
-                        ? 'border-white scale-110'
-                        : 'border-gray-600 hover:border-gray-400'
-                    }`}
-                    style={{ backgroundColor: color }}
-                    title={`Color: ${color}`}
-                  />
-                ))}
+              {/* Divider */}
+              <div className="w-px h-6 bg-gray-600"></div>
+
+              {/* Color Picker */}
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <Palette size={16} className="text-gray-400" />
+                  <span className="text-xs text-gray-400 font-medium">Color</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  {colors.map(color => (
+                    <button
+                      key={color}
+                      onClick={() => onColorSelect(color)}
+                      className={`w-6 h-6 rounded-md border-2 transition-all duration-200 ${
+                        selectedColor === color
+                          ? 'border-white scale-110 shadow-md'
+                          : 'border-gray-600 hover:border-gray-400 hover:scale-105'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={`Color: ${color}`}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-          {/* View Controls */}
-          <div className="flex items-center space-x-1 border-r border-gray-700 pr-3">
-            <button
-              onClick={onZoomOut}
-              className="p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-800 transition-all duration-200"
-              title="Zoom Out"
-            >
-              <ZoomOut size={18} />
-            </button>
-            <button
-              onClick={onZoomIn}
-              className="p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-800 transition-all duration-200"
-              title="Zoom In"
-            >
-              <ZoomIn size={18} />
-            </button>
-            <button
-              onClick={onReset}
-              className="p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-800 transition-all duration-200"
-              title="Reset View"
-            >
-              <RotateCcw size={18} />
-            </button>
-          </div>
 
-          {/* Utility Controls */}
-          <div className="flex items-center space-x-1">
-            <button
-              onClick={onExport}
-              className="p-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-800 transition-all duration-200"
-              title="Export"
-            >
-              <Download size={18} />
-            </button>
-            
-            {/* User Count */}
-            <div className="flex items-center space-x-1 px-3 py-2 bg-gray-800 rounded-md">
-              <Users size={16} className="text-green-400" />
-              <span className="text-sm text-gray-300 font-medium">{userCount}</span>
+            {/* Right Section - Controls & Status */}
+            <div className="flex items-center space-x-6">
+              {/* View Controls */}
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={onZoomOut}
+                  className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
+                  title="Zoom Out"
+                >
+                  <ZoomOut size={18} />
+                </button>
+                <button
+                  onClick={onZoomIn}
+                  className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
+                  title="Zoom In"
+                >
+                  <ZoomIn size={18} />
+                </button>
+                <button
+                  onClick={onReset}
+                  className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
+                  title="Reset View"
+                >
+                  <RotateCcw size={18} />
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div className="w-px h-6 bg-gray-600"></div>
+
+              {/* Utility Controls */}
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={onExport}
+                  className="p-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
+                  title="Export Drawing"
+                >
+                  <Download size={18} />
+                </button>
+                
+                <button
+                  onClick={onClearCanvas}
+                  className="p-2 rounded-lg text-gray-300 hover:text-red-400 hover:bg-red-900/20 transition-all duration-200"
+                  title="Clear Canvas"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div className="w-px h-6 bg-gray-600"></div>
+              
+              {/* User Count */}
+              <div className="flex items-center space-x-2 px-4 py-1.5 bg-gray-800 rounded-lg border border-gray-600 min-w-[80px]">
+                <Users size={16} className="text-green-400" />
+                <span className="text-xs text-gray-300 font-medium">{userCount}</span>
+                <span className="text-xs text-gray-500">online</span>
+              </div>
             </div>
           </div>
         </div>

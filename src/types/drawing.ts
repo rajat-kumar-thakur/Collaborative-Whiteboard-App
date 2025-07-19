@@ -36,8 +36,8 @@ export interface DrawingState {
 }
 
 export interface WebSocketMessage {
-  type: 'element_added' | 'element_updated' | 'element_deleted' | 'cursor_moved' | 'user_joined' | 'user_left';
-  data: any;
+  type: 'initial_state' | 'element_added' | 'element_updated' | 'element_deleted' | 'cursor_moved' | 'user_joined' | 'user_left';
+  data: DrawingElement | DrawingState | { position: Point } | User;
   userId: string;
   timestamp: number;
 }
