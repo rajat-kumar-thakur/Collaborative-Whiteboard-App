@@ -97,16 +97,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       </div>
 
       {/* Desktop Toolbar */}
-      <div className="hidden md:block fixed top-4 left-1/2 transform -translate-x-1/2 z-20 max-w-7xl">
+      <div className="hidden md:block fixed top-4 left-1/2 transform -translate-x-1/2 z-20 max-w-6xl w-full px-4">
         <div className={`backdrop-blur-sm rounded-xl shadow-2xl border ${
           isDarkMode 
             ? 'bg-gray-900/95 border-gray-700' 
             : 'bg-white/95 border-gray-200'
         }`}>
-          <div className="mx-auto px-4">
-            <div className="flex items-center justify-between h-16">
+          <div className="mx-auto px-3">
+            <div className="flex items-center justify-between h-14">
               {/* Left Section - Drawing Tools */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1">
                 {/* Drawing Tools */}
                 <div className="flex items-center space-x-1">
                   {tools.map(tool => {
@@ -124,27 +124,24 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                         }`}
                         title={tool.label}
                       >
-                        <Icon size={20} />
+                        <Icon size={18} />
                       </button>
                     );
                   })}
                 </div>
 
                 {/* Divider */}
-                <div className={`w-px h-8 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                <div className={`w-px h-6 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
 
                 {/* Color Picker */}
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    <Palette size={18} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} />
-                    <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Color</span>
-                  </div>
+                <div className="flex items-center space-x-2">
+                  <Palette size={16} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} />
                   <div className="flex items-center space-x-1">
                     {colors.map(color => (
                       <button
                         key={color}
                         onClick={() => onColorSelect(color)}
-                        className={`w-8 h-8 rounded-lg border-2 transition-all duration-200 ${
+                        className={`w-6 h-6 rounded-md border-2 transition-all duration-200 ${
                           selectedColor === color
                             ? 'border-blue-500 scale-110 shadow-md'
                             : isDarkMode
@@ -160,34 +157,34 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               </div>
 
               {/* Right Section - Controls & Status */}
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
                 {/* View Controls */}
                 <div className="flex items-center space-x-1">
                   <button
                     onClick={onZoomOut}
-                    className={`p-3 rounded-lg transition-all duration-200 ${
+                    className={`p-2 rounded-lg transition-all duration-200 ${
                       isDarkMode
                         ? 'text-gray-300 hover:text-white hover:bg-gray-700'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                     title="Zoom Out"
                   >
-                    <ZoomOut size={20} />
+                    <ZoomOut size={18} />
                   </button>
                   <button
                     onClick={onZoomIn}
-                    className={`p-3 rounded-lg transition-all duration-200 ${
+                    className={`p-2 rounded-lg transition-all duration-200 ${
                       isDarkMode
                         ? 'text-gray-300 hover:text-white hover:bg-gray-700'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                     title="Zoom In"
                   >
-                    <ZoomIn size={20} />
+                    <ZoomIn size={18} />
                   </button>
                   <button
                     onClick={onUndo}
-                    className={`p-3 rounded-lg transition-all duration-200 ${
+                    className={`p-2 rounded-lg transition-all duration-200 ${
                       canUndo 
                         ? isDarkMode
                           ? 'text-gray-300 hover:text-white hover:bg-gray-700'
@@ -199,78 +196,75 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                     title="Undo (Ctrl+Z)"
                     disabled={!canUndo}
                   >
-                    <RotateCcw size={20} />
+                    <RotateCcw size={18} />
                   </button>
                   <button
                     onClick={onReset}
-                    className={`p-3 rounded-lg transition-all duration-200 ${
+                    className={`p-2 rounded-lg transition-all duration-200 ${
                       isDarkMode
                         ? 'text-gray-300 hover:text-white hover:bg-gray-700'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                     title="Reset View (Center & Zoom 1x)"
                   >
-                    <RefreshCcw size={20} />
+                    <RefreshCcw size={18} />
                   </button>
                 </div>
 
                 {/* Divider */}
-                <div className={`w-px h-8 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                <div className={`w-px h-6 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
 
                 {/* Theme Toggle */}
                 <button
                   onClick={toggleTheme}
-                  className={`p-3 rounded-lg transition-all duration-200 ${
+                  className={`p-2 rounded-lg transition-all duration-200 ${
                     isDarkMode
                       ? 'text-yellow-400 hover:text-yellow-300 hover:bg-gray-700'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                   }`}
                   title={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
                 >
-                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                  {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
 
                 {/* Utility Controls */}
                 <div className="flex items-center space-x-1">
                   <button
                     onClick={onExport}
-                    className={`p-3 rounded-lg transition-all duration-200 ${
+                    className={`p-2 rounded-lg transition-all duration-200 ${
                       isDarkMode
                         ? 'text-gray-300 hover:text-white hover:bg-gray-700'
                         : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                     }`}
                     title="Export Drawing"
                   >
-                    <Download size={20} />
+                    <Download size={18} />
                   </button>
                   
                   <button
                     onClick={onClearCanvas}
-                    className={`p-3 rounded-lg transition-all duration-200 ${
+                    className={`p-2 rounded-lg transition-all duration-200 ${
                       isDarkMode
                         ? 'text-gray-300 hover:text-red-400 hover:bg-red-900/20'
                         : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
                     }`}
                     title="Clear Canvas"
                   >
-                    <Trash2 size={20} />
+                    <Trash2 size={18} />
                   </button>
                 </div>
 
                 {/* Divider */}
-                <div className={`w-px h-8 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+                <div className={`w-px h-6 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
                 
                 {/* User Count */}
-                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg border ${
+                <div className={`flex items-center space-x-1 px-2 py-1 rounded-lg border ${
                   isDarkMode
                     ? 'bg-gray-800 border-gray-600'
                     : 'bg-gray-50 border-gray-200'
                 }`}>
-                  <Users size={18} className="text-green-500" />
-                  <div className="flex items-center space-x-1">
-                    <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{userCount}</span>
-                    <span className={`text-xs whitespace-nowrap ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>online</span>
-                  </div>
+                  <Users size={16} className="text-green-500" />
+                  <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{userCount}</span>
                 </div>
               </div>
             </div>
