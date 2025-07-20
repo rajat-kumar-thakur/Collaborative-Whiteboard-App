@@ -23,7 +23,9 @@ function App() {
     setSelectedTool,
     setSelectedColor,
     setViewport,
-    resetViewport
+    resetViewport,
+    canUndo,
+    undo
   } = useDrawingStore();
 
   const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
@@ -100,13 +102,11 @@ function App() {
   };
 
   const handleZoomIn = () => {
-    const newZoom = Math.min(5, viewport.zoom * 1.2);
-    setViewport({ ...viewport, zoom: newZoom });
+    setViewport(prev => ({ ...prev, zoom: Math.min(5, prev.zoom * 1.2) }));
   };
 
   const handleZoomOut = () => {
-    const newZoom = Math.max(0.1, viewport.zoom * 0.8);
-    setViewport({ ...viewport, zoom: newZoom });
+    setViewport(prev => ({ ...prev, zoom: Math.max(0.1, prev.zoom * 0.8) }));
   };
 
   const handleExport = () => {
@@ -142,6 +142,8 @@ function App() {
         onCursorMove={handleCursorMove}
         onElementRemoved={handleElementRemoved}
         userId={userId}
+        viewport={viewport}
+        onViewportChange={setViewport}
       />
 
       {/* Toolbar */}
@@ -156,6 +158,8 @@ function App() {
         onReset={resetViewport}
         onExport={handleExport}
         onClearCanvas={handleClearCanvas}
+        onUndo={undo}
+        canUndo={canUndo()}
       />
 
       {/* User List */}
@@ -167,12 +171,9 @@ function App() {
           <h3 className="text-sm font-medium text-white mb-3">Controls</h3>
           <div className="text-xs text-gray-400 space-y-2">
             <p>• Click and drag to draw with selected tool</p>
-            <p>• Ctrl+Click or middle mouse to pan</p>
             <p>• Mouse wheel to zoom</p>
-            <p>• Select tools from the toolbar above</p>
             <p>• Use text tool to add text labels</p>
             <p>• Use select tool to highlight elements</p>
-            <p>• Use eraser to remove drawing elements</p>
           </div>
         </div>
       </div>

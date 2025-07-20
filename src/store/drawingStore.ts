@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DrawingElement, User, Point } from '../types/drawing';
+import { DrawingElement, User } from '../types/drawing';
 
 interface DrawingStore {
   elements: DrawingElement[];
@@ -11,6 +11,8 @@ interface DrawingStore {
     y: number;
     zoom: number;
   };
+  history: DrawingElement[][];
+  redoStack: DrawingElement[][];
   addElement: (element: DrawingElement) => void;
   updateElement: (id: string, updates: Partial<DrawingElement>) => void;
   removeElement: (id: string) => void;
@@ -18,9 +20,13 @@ interface DrawingStore {
   updateUser: (userId: string, updates: Partial<User>) => void;
   setSelectedTool: (tool: string) => void;
   setSelectedColor: (color: string) => void;
-  setViewport: (viewport: { x: number; y: number; zoom: number }) => void;
+  setViewport: (viewport: { x: number; y: number; zoom: number } | ((prev: { x: number; y: number; zoom: number }) => { x: number; y: number; zoom: number })) => void;
   resetViewport: () => void;
   clearCanvas: () => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
 }
 
 export const useDrawingStore = create<DrawingStore>((set, get) => ({
@@ -29,8 +35,12 @@ export const useDrawingStore = create<DrawingStore>((set, get) => ({
   selectedTool: 'pen',
   selectedColor: '#3b82f6',
   viewport: { x: 0, y: 0, zoom: 1 },
+  history: [],
+  redoStack: [],
 
   addElement: (element) => set(state => ({
+    history: [...state.history, state.elements],
+    redoStack: [],
     elements: [...state.elements, element]
   })),
 
@@ -41,6 +51,8 @@ export const useDrawingStore = create<DrawingStore>((set, get) => ({
   })),
 
   removeElement: (id) => set(state => ({
+    history: [...state.history, state.elements],
+    redoStack: [],
     elements: state.elements.filter(el => el.id !== id)
   })),
 
@@ -55,9 +67,41 @@ export const useDrawingStore = create<DrawingStore>((set, get) => ({
   setSelectedTool: (tool) => set({ selectedTool: tool }),
 
   setSelectedColor: (color) => set({ selectedColor: color }),
-  setViewport: (viewport) => set({ viewport }),
+  setViewport: (viewportOrUpdater) =>
+    typeof viewportOrUpdater === 'function'
+      ? set(state => ({ viewport: viewportOrUpdater(state.viewport) }))
+      : set({ viewport: viewportOrUpdater }),
 
   resetViewport: () => set({ viewport: { x: 0, y: 0, zoom: 1 } }),
 
-  clearCanvas: () => set({ elements: [] })
+  clearCanvas: () => set(state => ({
+    history: [...state.history, state.elements],
+    redoStack: [],
+    elements: []
+  })),
+
+  undo: () => set(state => {
+    if (state.history.length === 0) return {};
+    const prev = state.history[state.history.length - 1];
+    const newHistory = state.history.slice(0, -1);
+    return {
+      elements: prev,
+      history: newHistory,
+      redoStack: [state.elements, ...state.redoStack]
+    };
+  }),
+
+  redo: () => set(state => {
+    if (state.redoStack.length === 0) return {};
+    const next = state.redoStack[0];
+    const newRedo = state.redoStack.slice(1);
+    return {
+      elements: next,
+      history: [...state.history, state.elements],
+      redoStack: newRedo
+    };
+  }),
+
+  canUndo: () => get().history.length > 0,
+  canRedo: () => get().redoStack.length > 0,
 }));

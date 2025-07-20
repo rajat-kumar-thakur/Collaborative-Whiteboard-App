@@ -10,6 +10,8 @@ interface DrawingCanvasProps {
   onCursorMove: (position: Point) => void;
   onElementRemoved: (elementId: string) => void;
   userId: string;
+  viewport: { x: number; y: number; zoom: number };
+  onViewportChange: (viewport: { x: number; y: number; zoom: number }) => void;
 }
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
@@ -20,12 +22,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   onElementAdded,
   onCursorMove,
   onElementRemoved,
-  userId
+  userId,
+  viewport,
+  onViewportChange
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
-  const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 1 });
   const [isPanning, setIsPanning] = useState(false);
   const [lastPanPoint, setLastPanPoint] = useState<Point>({ x: 0, y: 0 });
   const [textInput, setTextInput] = useState<string>('');
@@ -480,13 +483,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     if (isPanning) {
       const deltaX = e.clientX - lastPanPoint.x;
       const deltaY = e.clientY - lastPanPoint.y;
-      
-      setViewport(prev => ({
-        ...prev,
-        x: prev.x + deltaX / prev.zoom,
-        y: prev.y + deltaY / prev.zoom
-      }));
-      
+      onViewportChange({
+        ...viewport,
+        x: viewport.x + deltaX / viewport.zoom,
+        y: viewport.y + deltaY / viewport.zoom
+      });
       setLastPanPoint({ x: e.clientX, y: e.clientY });
       return;
     }
@@ -589,11 +590,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     e.preventDefault();
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     const newZoom = Math.max(0.1, Math.min(5, viewport.zoom * zoomFactor));
-    
-    setViewport(prev => ({
-      ...prev,
-      zoom: newZoom
-    }));
+    onViewportChange({ ...viewport, zoom: newZoom });
   };
 
   const handleTextSubmit = () => {

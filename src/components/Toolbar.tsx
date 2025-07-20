@@ -10,6 +10,7 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  RefreshCcw,
   Download,
   Palette,
   Trash2,
@@ -27,6 +28,8 @@ interface ToolbarProps {
   onReset: () => void;
   onExport: () => void;
   onClearCanvas: () => void;
+  onUndo: () => void;
+  canUndo: boolean;
 }
 
 const tools = [
@@ -62,7 +65,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onZoomOut,
   onReset,
   onExport,
-  onClearCanvas
+  onClearCanvas,
+  onUndo,
+  canUndo
 }) => {
   return (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-10">
@@ -70,7 +75,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <div className="max-w-7xl mx-auto px-3">
           <div className="flex items-center justify-between h-14">
             {/* Left Section - Drawing Tools */}
-            <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-1">
               {/* Drawing Tools */}
               <div className="flex items-center space-x-1">
                 {tools.map(tool => {
@@ -138,11 +143,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <ZoomIn size={20} />
                 </button>
                 <button
-                  onClick={onReset}
-                  className="p-2.5 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
-                  title="Reset View"
+                  onClick={onUndo}
+                  className={`p-2.5 rounded-lg transition-all duration-200 ${canUndo ? 'text-gray-300 hover:text-white hover:bg-gray-700' : 'text-gray-600 cursor-not-allowed'}`}
+                  title="Undo (Ctrl+Z)"
+                  disabled={!canUndo}
                 >
                   <RotateCcw size={20} />
+                </button>
+                <button
+                  onClick={onReset}
+                  className="p-2.5 rounded-lg text-gray-300 hover:text-white hover:bg-gray-700 transition-all duration-200"
+                  title="Reset View (Center & Zoom 1x)"
+                >
+                  <RefreshCcw size={20} />
                 </button>
               </div>
 
