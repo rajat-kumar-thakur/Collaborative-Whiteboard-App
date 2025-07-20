@@ -249,7 +249,51 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           ctx.lineTo(currentPath[i].x, currentPath[i].y);
         }
         ctx.stroke();
+      } else if (selectedTool === 'rectangle' && currentPath.length === 2) {
+        // Draw rectangle preview
+        ctx.strokeStyle = selectedColor;
+        ctx.lineWidth = 2;
+        const [start, end] = currentPath;
+        const width = end.x - start.x;
+        const height = end.y - start.y;
+        ctx.strokeRect(start.x, start.y, width, height);
+      } else if (selectedTool === 'circle' && currentPath.length === 2) {
+        // Draw circle preview
+        ctx.strokeStyle = selectedColor;
+        ctx.lineWidth = 2;
+        const [start, end] = currentPath;
+        const radius = Math.sqrt(Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
+        ctx.beginPath();
+        ctx.arc(start.x, start.y, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+      } else if (selectedTool === 'arrow' && currentPath.length === 2) {
+        // Draw arrow preview
+        ctx.strokeStyle = selectedColor;
+        ctx.lineWidth = 2;
+        const [start, end] = currentPath;
+        const angle = Math.atan2(end.y - start.y, end.x - start.x);
+        const arrowLength = 20;
+        const arrowAngle = Math.PI / 6;
+        // Draw line
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+        // Draw arrowhead
+        ctx.beginPath();
+        ctx.moveTo(end.x, end.y);
+        ctx.lineTo(
+          end.x - arrowLength * Math.cos(angle - arrowAngle),
+          end.y - arrowLength * Math.sin(angle - arrowAngle)
+        );
+        ctx.moveTo(end.x, end.y);
+        ctx.lineTo(
+          end.x - arrowLength * Math.cos(angle + arrowAngle),
+          end.y - arrowLength * Math.sin(angle + arrowAngle)
+        );
+        ctx.stroke();
       } else {
+        // Default: draw polyline (for pen, fallback)
         ctx.strokeStyle = selectedColor;
         ctx.lineWidth = 2;
         ctx.lineCap = 'round';
@@ -494,7 +538,45 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           userId,
           timestamp: Date.now()
         };
-
+        onElementAdded(element);
+      } else if (selectedTool === 'rectangle' && currentPath.length === 2) {
+        const element: DrawingElement = {
+          id: `${userId}-${Date.now()}`,
+          type: 'rectangle',
+          points: [...currentPath],
+          style: {
+            stroke: selectedColor,
+            strokeWidth: 2
+          },
+          userId,
+          timestamp: Date.now()
+        };
+        onElementAdded(element);
+      } else if (selectedTool === 'circle' && currentPath.length === 2) {
+        const element: DrawingElement = {
+          id: `${userId}-${Date.now()}`,
+          type: 'circle',
+          points: [...currentPath],
+          style: {
+            stroke: selectedColor,
+            strokeWidth: 2
+          },
+          userId,
+          timestamp: Date.now()
+        };
+        onElementAdded(element);
+      } else if (selectedTool === 'arrow' && currentPath.length === 2) {
+        const element: DrawingElement = {
+          id: `${userId}-${Date.now()}`,
+          type: 'arrow',
+          points: [...currentPath],
+          style: {
+            stroke: selectedColor,
+            strokeWidth: 2
+          },
+          userId,
+          timestamp: Date.now()
+        };
         onElementAdded(element);
       }
       // For eraser, we don't create elements, we just remove them
