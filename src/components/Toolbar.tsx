@@ -261,14 +261,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                 <div className={`w-px h-8 ${isDarkMode ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
                 
                 {/* User Count */}
-                <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg border min-w-[120px] ${
+                <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg border ${
                   isDarkMode
                     ? 'bg-gray-800 border-gray-600'
                     : 'bg-gray-50 border-gray-200'
                 }`}>
                   <Users size={18} className="text-green-500" />
-                  <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{userCount}</span>
-                  <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>online</span>
+                  <div className="flex items-center space-x-1">
+                    <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{userCount}</span>
+                    <span className={`text-xs whitespace-nowrap ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>online</span>
+                  </div>
                 </div>
               </div>
             </div>
