@@ -104,7 +104,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             : 'bg-white/95 border-gray-200'
         }`}>
           <div className="mx-auto px-6">
-            <div className="flex items-center justify-between h-16">
+            <div className="flex items-center justify-between h-14">
               {/* Left Section - Drawing Tools */}
               <div className="flex items-center space-x-2">
                 {/* Drawing Tools */}
