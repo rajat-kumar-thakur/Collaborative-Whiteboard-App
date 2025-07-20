@@ -12,7 +12,7 @@ export const UserList: React.FC<UserListProps> = ({ users, currentUserId }) => {
   const { isDarkMode } = useThemeStore();
 
   return (
-    <div className="fixed top-4 right-4 z-10 hidden lg:block">
+    <div className="fixed top-24 right-4 z-10 hidden lg:block">
       <div className={`backdrop-blur-sm border rounded-xl p-4 shadow-xl max-w-xs ${
         isDarkMode 
           ? 'bg-gray-900/95 border-gray-700' 

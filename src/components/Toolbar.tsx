@@ -97,13 +97,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       </div>
 
       {/* Desktop Toolbar */}
-      <div className="hidden md:block fixed top-4 left-1/2 transform -translate-x-1/2 z-20">
+      <div className="hidden md:block fixed top-4 left-1/2 transform -translate-x-1/2 z-20 max-w-7xl">
         <div className={`backdrop-blur-sm rounded-xl shadow-2xl border ${
           isDarkMode 
             ? 'bg-gray-900/95 border-gray-700' 
             : 'bg-white/95 border-gray-200'
         }`}>
-          <div className="max-w-7xl mx-auto px-4">
+          <div className="mx-auto px-4">
             <div className="flex items-center justify-between h-16">
               {/* Left Section - Drawing Tools */}
               <div className="flex items-center space-x-2">

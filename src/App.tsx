@@ -190,7 +190,7 @@ function App() {
         <UserList users={users} currentUserId={userId} />
 
         {/* Instructions - Hidden on mobile */}
-        <div className="fixed bottom-6 right-6 z-10 hidden lg:block">
+        <div className="fixed bottom-6 right-4 z-10 hidden lg:block max-w-sm">
           <div className={`backdrop-blur-sm border rounded-xl p-4 shadow-xl max-w-sm ${
             isDarkMode 
               ? 'bg-gray-900/95 border-gray-700' 
