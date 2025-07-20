@@ -1,14 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { ThemeProvider } from './components/ThemeProvider';
 import { DrawingCanvas } from './components/DrawingCanvas';
 import { Toolbar } from './components/Toolbar';
 import { UserList } from './components/UserList';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useDrawingStore } from './store/drawingStore';
+import { useThemeStore } from './store/themeStore';
 import { WebSocketMessage, DrawingElement, Point, DrawingState } from './types/drawing';
 import { exportCanvasAsImage, downloadImage } from './utils/export';
 
 function App() {
+  const { isDarkMode } = useThemeStore();
   const [userId] = useState(() => `user-${Math.random().toString(36).substr(2, 9)}`);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   const {
     elements,
@@ -119,65 +123,93 @@ function App() {
     useDrawingStore.getState().clearCanvas();
   };
 
+  const handleToggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
   return (
-    <div className="w-full h-screen bg-gray-900 overflow-hidden relative">
-      {/* Connection Status */}
-      <div className="fixed top-4 left-4 z-20">
-        <div className={`px-3 py-2 rounded-lg text-sm font-medium ${
-          isConnected 
-            ? 'bg-green-900/50 text-green-400 border border-green-700' 
-            : 'bg-red-900/50 text-red-400 border border-red-700'
-        }`}>
-          {isConnected ? 'Connected' : 'Connecting...'}
+    <ThemeProvider>
+      <div className={`w-full h-screen overflow-hidden relative transition-colors duration-300 ${
+        isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+      }`}>
+        {/* Connection Status */}
+        <div className="fixed bottom-4 left-4 z-20">
+          <div className={`px-4 py-2 rounded-xl text-sm font-medium shadow-lg backdrop-blur-sm border transition-all duration-200 ${
+            isConnected 
+              ? isDarkMode
+                ? 'bg-green-900/50 text-green-400 border-green-700' 
+                : 'bg-green-50/90 text-green-700 border-green-200'
+              : isDarkMode
+                ? 'bg-red-900/50 text-red-400 border-red-700'
+                : 'bg-red-50/90 text-red-700 border-red-200'
+          }`}>
+            <div className="flex items-center space-x-2">
+              <div className={`w-2 h-2 rounded-full ${
+                isConnected 
+                  ? 'bg-green-400 animate-pulse' 
+                  : 'bg-red-400 animate-pulse'
+              }`} />
+              <span>{isConnected ? 'Connected' : 'Connecting...'}</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Main Canvas */}
-      <DrawingCanvas
-        elements={elements}
-        users={users}
-        selectedTool={selectedTool}
-        selectedColor={selectedColor}
-        onElementAdded={handleElementAdded}
-        onCursorMove={handleCursorMove}
-        onElementRemoved={handleElementRemoved}
-        userId={userId}
-        viewport={viewport}
-        onViewportChange={setViewport}
-      />
+        {/* Main Canvas */}
+        <DrawingCanvas
+          elements={elements}
+          users={users}
+          selectedTool={selectedTool}
+          selectedColor={selectedColor}
+          onElementAdded={handleElementAdded}
+          onCursorMove={handleCursorMove}
+          onElementRemoved={handleElementRemoved}
+          userId={userId}
+          viewport={viewport}
+          onViewportChange={setViewport}
+        />
 
-      {/* Toolbar */}
-      <Toolbar
-        selectedTool={selectedTool}
-        onToolSelect={setSelectedTool}
-        selectedColor={selectedColor}
-        onColorSelect={setSelectedColor}
-        userCount={users.length}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onReset={resetViewport}
-        onExport={handleExport}
-        onClearCanvas={handleClearCanvas}
-        onUndo={undo}
-        canUndo={canUndo()}
-      />
+        {/* Toolbar */}
+        <Toolbar
+          selectedTool={selectedTool}
+          onToolSelect={setSelectedTool}
+          selectedColor={selectedColor}
+          onColorSelect={setSelectedColor}
+          userCount={users.length}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onReset={resetViewport}
+          onExport={handleExport}
+          onClearCanvas={handleClearCanvas}
+          onUndo={undo}
+          canUndo={canUndo()}
+          isMobileMenuOpen={isMobileMenuOpen}
+          onToggleMobileMenu={handleToggleMobileMenu}
+        />
 
-      {/* User List */}
-      <UserList users={users} currentUserId={userId} />
+        {/* User List */}
+        <UserList users={users} currentUserId={userId} />
 
-      {/* Instructions */}
-      <div className="fixed bottom-6 left-6 z-10">
-        <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg p-4 shadow-xl max-w-md">
-          <h3 className="text-sm font-medium text-white mb-3">Controls</h3>
-          <div className="text-xs text-gray-400 space-y-2">
-            <p>• Click and drag to draw with selected tool</p>
-            <p>• Mouse wheel to zoom</p>
-            <p>• Use text tool to add text labels</p>
-            <p>• Use select tool to highlight elements</p>
+        {/* Instructions - Hidden on mobile */}
+        <div className="fixed bottom-6 right-6 z-10 hidden lg:block">
+          <div className={`backdrop-blur-sm border rounded-xl p-4 shadow-xl max-w-sm ${
+            isDarkMode 
+              ? 'bg-gray-900/95 border-gray-700' 
+              : 'bg-white/95 border-gray-200'
+          }`}>
+            <h3 className={`text-sm font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Quick Guide
+            </h3>
+            <div className={`text-xs space-y-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              <p>• Click and drag to draw with selected tool</p>
+              <p>• Mouse wheel to zoom in/out</p>
+              <p>• Ctrl+click to pan around canvas</p>
+              <p>• Use text tool to add labels</p>
+              <p>• Select tool to highlight elements</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 }
 

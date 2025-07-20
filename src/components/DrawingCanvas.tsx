@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Point, DrawingElement, User } from '../types/drawing';
+import { useThemeStore } from '../store/themeStore';
 
 interface DrawingCanvasProps {
   elements: DrawingElement[];
@@ -26,6 +27,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
   viewport,
   onViewportChange
 }) => {
+  const { isDarkMode } = useThemeStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPath, setCurrentPath] = useState<Point[]>([]);
@@ -337,6 +339,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
     return () => window.removeEventListener('resize', resizeCanvas);
   }, [redraw]);
 
+  // Update canvas background based on theme
+  const canvasBackground = isDarkMode ? '#1a1a1a' : '#f8fafc';
+
   const getMousePos = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -631,7 +636,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
           selectedTool === 'select' ? 'cursor-pointer' : 
           selectedTool === 'eraser' ? 'cursor-crosshair' : 'cursor-crosshair'
         }`}
-        style={{ background: '#1a1a1a' }}
+        style={{ background: canvasBackground }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -640,8 +645,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
       
       {/* Text Input Overlay */}
       {showTextInput && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="bg-gray-800 border border-gray-600 p-4 rounded-lg">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className={`border p-6 rounded-xl shadow-2xl ${
+            isDarkMode 
+              ? 'bg-gray-800 border-gray-600' 
+              : 'bg-white border-gray-200'
+          }`}>
             <input
               type="text"
               value={textInput}
@@ -649,10 +658,14 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({
               onKeyDown={handleKeyDown}
               onBlur={handleTextSubmit}
               autoFocus
-              className="bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
+              className={`px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                isDarkMode
+                  ? 'bg-gray-700 text-white border-gray-600'
+                  : 'bg-white text-gray-900 border-gray-300'
+              }`}
               placeholder="Enter text..."
             />
-            <div className="text-xs text-gray-400 mt-2">
+            <div className={`text-xs mt-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Press Enter to confirm, Escape to cancel
             </div>
           </div>
