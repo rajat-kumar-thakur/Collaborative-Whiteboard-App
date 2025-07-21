@@ -12,6 +12,7 @@
     "dev:server": "nodemon src/server/websocketServer.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.52.0",
     "lucide-react": "^0.344.0",
     "perfect-freehand": "^1.2.2",
     "react": "^18.3.1",

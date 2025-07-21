@@ -1,13 +1,14 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import http from 'http';
-import RoomManager from './roomManager.js';
+import DatabaseManager from './database.js';
 
 class CollaborativeDrawingServer {
   constructor() {
     this.server = http.createServer();
     this.wss = new WebSocketServer({ server: this.server });
-    this.roomManager = new RoomManager();
+    this.db = new DatabaseManager();
     this.clients = new Map(); // userId -> { ws, roomId, lastSeen }
+    this.roomCursors = new Map(); // roomId -> Map(userId -> cursor)
     
     this.setupWebSocketHandlers();
     this.startCleanupInterval();
@@ -38,45 +39,45 @@ class CollaborativeDrawingServer {
     });
   }
 
-  handleMessage(ws, message) {
+  async handleMessage(ws, message) {
     const { type, data, userId, roomId, timestamp } = message;
 
     try {
       switch (type) {
         case 'create_room':
-          this.handleCreateRoom(ws, userId, data);
+          await this.handleCreateRoom(ws, userId, data);
           break;
 
         case 'join_room':
-          this.handleJoinRoom(ws, userId, roomId, data);
+          await this.handleJoinRoom(ws, userId, roomId, data);
           break;
 
         case 'leave_room':
-          this.handleLeaveRoom(ws, userId, roomId);
+          await this.handleLeaveRoom(ws, userId, roomId);
           break;
 
         case 'element_added':
-          this.handleElementAdded(ws, userId, roomId, data);
+          await this.handleElementAdded(ws, userId, roomId, data);
           break;
 
         case 'element_updated':
-          this.handleElementUpdated(ws, userId, roomId, data);
+          await this.handleElementUpdated(ws, userId, roomId, data);
           break;
 
         case 'element_deleted':
-          this.handleElementDeleted(ws, userId, roomId, data);
+          await this.handleElementDeleted(ws, userId, roomId, data);
           break;
 
         case 'cursor_moved':
-          this.handleCursorMoved(ws, userId, roomId, data);
+          await this.handleCursorMoved(ws, userId, roomId, data);
           break;
 
         case 'clear_canvas':
-          this.handleClearCanvas(ws, userId, roomId);
+          await this.handleClearCanvas(ws, userId, roomId);
           break;
 
         case 'get_rooms':
-          this.handleGetRooms(ws);
+          await this.handleGetRooms(ws);
           break;
 
         default:
@@ -89,173 +90,250 @@ class CollaborativeDrawingServer {
     }
   }
 
-  handleCreateRoom(ws, userId, data) {
-    const result = this.roomManager.createRoom(data?.roomId);
-    
-    if (result.success) {
-      this.sendToClient(ws, {
-        type: 'room_created',
-        data: {
-          roomId: result.roomId,
-          roomUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}?room=${result.roomId}`,
-          room: result.room
-        },
-        userId: 'server',
-        timestamp: Date.now()
-      });
-      
-      console.log(`Room ${result.roomId} created successfully`);
-    } else {
-      this.sendError(ws, result.error);
+  async handleCreateRoom(ws, userId, data) {
+    try {
+      let roomId;
+      let attempts = 0;
+      let result;
+
+      // Generate unique room ID
+      do {
+        roomId = this.db.generateRoomId();
+        result = await this.db.createRoom(roomId, data);
+        attempts++;
+      } while (!result.success && attempts < 10);
+
+      if (result.success) {
+        this.sendToClient(ws, {
+          type: 'room_created',
+          data: {
+            roomId: roomId,
+            roomUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}?room=${roomId}`,
+            room: result.room
+          },
+          userId: 'server',
+          timestamp: Date.now()
+        });
+        
+        console.log(`Room ${roomId} created successfully`);
+      } else {
+        this.sendError(ws, 'Failed to create room after multiple attempts');
+      }
+    } catch (error) {
+      console.error('Error in handleCreateRoom:', error);
+      this.sendError(ws, 'Failed to create room');
     }
   }
 
-  handleJoinRoom(ws, userId, roomId, userData) {
-    if (!roomId) {
-      this.sendError(ws, 'Room ID is required');
-      return;
-    }
-
-    // Create room if it doesn't exist
-    let room = this.roomManager.getRoom(roomId);
-    if (!room) {
-      const createResult = this.roomManager.createRoom(roomId);
-      if (!createResult.success) {
-        this.sendError(ws, createResult.error);
+  async handleJoinRoom(ws, userId, roomId, userData) {
+    try {
+      if (!roomId) {
+        this.sendError(ws, 'Room ID is required');
         return;
       }
-      room = createResult.room;
-    }
 
-    const result = this.roomManager.addUserToRoom(roomId, userId, userData || {});
-    
-    if (result.success) {
-      // Store client connection info
-      this.clients.set(userId, { ws, roomId, lastSeen: Date.now() });
+      // Check if room exists, create if it doesn't
+      let room = await this.db.getRoom(roomId);
+      if (!room) {
+        const createResult = await this.db.createRoom(roomId);
+        if (!createResult.success) {
+          this.sendError(ws, createResult.error);
+          return;
+        }
+        room = createResult.room;
+      }
 
-      // Send current room state to new user
-      this.sendToClient(ws, {
-        type: 'room_joined',
-        data: {
-          roomId,
-          elements: room.elements,
-          users: Array.from(room.users.values()),
-          user: result.user
-        },
-        userId: 'server',
-        timestamp: Date.now()
-      });
-
-      // Notify other users in the room
-      this.broadcastToRoom(roomId, {
-        type: 'user_joined',
-        data: result.user,
-        userId: 'server',
-        timestamp: Date.now()
-      }, userId);
-
-    } else {
-      this.sendError(ws, result.error);
-    }
-  }
-
-  handleLeaveRoom(ws, userId, roomId) {
-    const removed = this.roomManager.removeUserFromRoom(roomId, userId);
-    
-    if (removed) {
-      this.clients.delete(userId);
+      // Add user to room
+      const result = await this.db.addUserToRoom(roomId, userId, userData || {});
       
-      // Notify other users in the room
-      this.broadcastToRoom(roomId, {
-        type: 'user_left',
-        data: { userId },
-        userId: 'server',
-        timestamp: Date.now()
-      }, userId);
+      if (result.success) {
+        // Store client connection info
+        this.clients.set(userId, { ws, roomId, lastSeen: Date.now() });
+
+        // Initialize room cursors if needed
+        if (!this.roomCursors.has(roomId)) {
+          this.roomCursors.set(roomId, new Map());
+        }
+
+        // Get room data
+        const [elements, users] = await Promise.all([
+          this.db.getRoomElements(roomId),
+          this.db.getRoomUsers(roomId)
+        ]);
+
+        // Send current room state to new user
+        this.sendToClient(ws, {
+          type: 'room_joined',
+          data: {
+            roomId,
+            elements,
+            users,
+            user: result.user
+          },
+          userId: 'server',
+          timestamp: Date.now()
+        });
+
+        // Notify other users in the room
+        this.broadcastToRoom(roomId, {
+          type: 'user_joined',
+          data: result.user,
+          userId: 'server',
+          timestamp: Date.now()
+        }, userId);
+
+        console.log(`User ${userId} joined room ${roomId}`);
+      } else {
+        this.sendError(ws, result.error);
+      }
+    } catch (error) {
+      console.error('Error in handleJoinRoom:', error);
+      this.sendError(ws, 'Failed to join room');
     }
   }
 
-  handleElementAdded(ws, userId, roomId, elementData) {
-    const success = this.roomManager.addElementToRoom(roomId, elementData);
-    
-    if (success) {
-      this.broadcastToRoom(roomId, {
-        type: 'element_added',
-        data: elementData,
-        userId,
-        timestamp: Date.now()
-      }, userId);
-    } else {
+  async handleLeaveRoom(ws, userId, roomId) {
+    try {
+      const removed = await this.db.removeUserFromRoom(roomId, userId);
+      
+      if (removed) {
+        this.clients.delete(userId);
+        
+        // Remove cursor
+        if (this.roomCursors.has(roomId)) {
+          this.roomCursors.get(roomId).delete(userId);
+        }
+        
+        // Notify other users in the room
+        this.broadcastToRoom(roomId, {
+          type: 'user_left',
+          data: { userId },
+          userId: 'server',
+          timestamp: Date.now()
+        }, userId);
+
+        console.log(`User ${userId} left room ${roomId}`);
+      }
+    } catch (error) {
+      console.error('Error in handleLeaveRoom:', error);
+    }
+  }
+
+  async handleElementAdded(ws, userId, roomId, elementData) {
+    try {
+      const result = await this.db.addElement(roomId, elementData);
+      
+      if (result.success) {
+        this.broadcastToRoom(roomId, {
+          type: 'element_added',
+          data: elementData,
+          userId,
+          timestamp: Date.now()
+        }, userId);
+      } else {
+        this.sendError(ws, 'Failed to add element');
+      }
+    } catch (error) {
+      console.error('Error in handleElementAdded:', error);
       this.sendError(ws, 'Failed to add element');
     }
   }
 
-  handleElementUpdated(ws, userId, roomId, elementData) {
-    const success = this.roomManager.updateElementInRoom(roomId, elementData.id, elementData);
-    
-    if (success) {
-      this.broadcastToRoom(roomId, {
-        type: 'element_updated',
-        data: elementData,
-        userId,
-        timestamp: Date.now()
-      }, userId);
-    } else {
+  async handleElementUpdated(ws, userId, roomId, elementData) {
+    try {
+      const result = await this.db.updateElement(roomId, elementData.id, elementData);
+      
+      if (result.success) {
+        this.broadcastToRoom(roomId, {
+          type: 'element_updated',
+          data: elementData,
+          userId,
+          timestamp: Date.now()
+        }, userId);
+      } else {
+        this.sendError(ws, 'Failed to update element');
+      }
+    } catch (error) {
+      console.error('Error in handleElementUpdated:', error);
       this.sendError(ws, 'Failed to update element');
     }
   }
 
-  handleElementDeleted(ws, userId, roomId, elementId) {
-    const success = this.roomManager.removeElementFromRoom(roomId, elementId);
-    
-    if (success) {
-      this.broadcastToRoom(roomId, {
-        type: 'element_deleted',
-        data: elementId,
-        userId,
-        timestamp: Date.now()
-      }, userId);
-    } else {
+  async handleElementDeleted(ws, userId, roomId, elementId) {
+    try {
+      const success = await this.db.removeElement(roomId, elementId);
+      
+      if (success) {
+        this.broadcastToRoom(roomId, {
+          type: 'element_deleted',
+          data: elementId,
+          userId,
+          timestamp: Date.now()
+        }, userId);
+      } else {
+        this.sendError(ws, 'Failed to delete element');
+      }
+    } catch (error) {
+      console.error('Error in handleElementDeleted:', error);
       this.sendError(ws, 'Failed to delete element');
     }
   }
 
-  handleCursorMoved(ws, userId, roomId, cursorData) {
-    const success = this.roomManager.updateUserCursor(roomId, userId, cursorData.position);
-    
-    if (success) {
+  async handleCursorMoved(ws, userId, roomId, cursorData) {
+    try {
+      // Store cursor in memory (don't persist to database)
+      if (!this.roomCursors.has(roomId)) {
+        this.roomCursors.set(roomId, new Map());
+      }
+      this.roomCursors.get(roomId).set(userId, cursorData.position);
+
+      // Update user activity
+      await this.db.updateUserActivity(roomId, userId);
+      
       this.broadcastToRoom(roomId, {
         type: 'cursor_moved',
         data: cursorData,
         userId,
         timestamp: Date.now()
       }, userId);
+    } catch (error) {
+      console.error('Error in handleCursorMoved:', error);
     }
   }
 
-  handleClearCanvas(ws, userId, roomId) {
-    const success = this.roomManager.clearRoomCanvas(roomId);
-    
-    if (success) {
-      this.broadcastToRoom(roomId, {
-        type: 'canvas_cleared',
-        data: {},
-        userId,
-        timestamp: Date.now()
-      });
-    } else {
+  async handleClearCanvas(ws, userId, roomId) {
+    try {
+      const success = await this.db.clearRoomElements(roomId);
+      
+      if (success) {
+        this.broadcastToRoom(roomId, {
+          type: 'canvas_cleared',
+          data: {},
+          userId,
+          timestamp: Date.now()
+        });
+      } else {
+        this.sendError(ws, 'Failed to clear canvas');
+      }
+    } catch (error) {
+      console.error('Error in handleClearCanvas:', error);
       this.sendError(ws, 'Failed to clear canvas');
     }
   }
 
-  handleGetRooms(ws) {
-    const stats = this.roomManager.getRoomStats();
-    this.sendToClient(ws, {
-      type: 'rooms_list',
-      data: stats,
-      userId: 'server',
-      timestamp: Date.now()
-    });
+  async handleGetRooms(ws) {
+    try {
+      const stats = await this.db.getRoomStats();
+      this.sendToClient(ws, {
+        type: 'rooms_list',
+        data: stats,
+        userId: 'server',
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error('Error in handleGetRooms:', error);
+      this.sendError(ws, 'Failed to get rooms list');
+    }
   }
 
   handleClientDisconnect(ws) {
@@ -269,9 +347,6 @@ class CollaborativeDrawingServer {
   }
 
   broadcastToRoom(roomId, message, excludeUserId = null) {
-    const room = this.roomManager.getRoom(roomId);
-    if (!room) return;
-
     const messageStr = JSON.stringify(message);
     
     for (const [userId, client] of this.clients.entries()) {
@@ -308,8 +383,8 @@ class CollaborativeDrawingServer {
 
   startCleanupInterval() {
     // Clean up inactive rooms every hour
-    setInterval(() => {
-      this.roomManager.cleanupInactiveRooms();
+    setInterval(async () => {
+      await this.db.cleanupInactiveRooms();
     }, 60 * 60 * 1000);
 
     // Update client last seen every 30 seconds
@@ -322,19 +397,30 @@ class CollaborativeDrawingServer {
         }
       }
     }, 30 * 1000);
+
+    // Log server stats every 10 minutes
+    setInterval(async () => {
+      const stats = await this.db.getRoomStats();
+      console.log('📊 Server Stats:', {
+        ...stats,
+        connectedClients: this.clients.size,
+        uptime: Math.floor(process.uptime() / 60) + ' minutes'
+      });
+    }, 10 * 60 * 1000);
   }
 
   start(port = 3001) {
     this.server.listen(port, () => {
       console.log(`🚀 Collaborative Drawing Server running on port ${port}`);
-      console.log(`📊 Room management enabled`);
+      console.log(`💾 Database integration enabled`);
       console.log(`🔗 WebSocket endpoint: ws://localhost:${port}`);
     });
   }
 
-  getServerStats() {
+  async getServerStats() {
+    const dbStats = await this.db.getRoomStats();
     return {
-      ...this.roomManager.getRoomStats(),
+      ...dbStats,
       connectedClients: this.clients.size,
       uptime: process.uptime()
     };
