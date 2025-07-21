@@ -97,11 +97,14 @@ class CollaborativeDrawingServer {
         type: 'room_created',
         data: {
           roomId: result.roomId,
-          roomUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}?room=${result.roomId}`
+          roomUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}?room=${result.roomId}`,
+          room: result.room
         },
         userId: 'server',
         timestamp: Date.now()
       });
+      
+      console.log(`Room ${result.roomId} created successfully`);
     } else {
       this.sendError(ws, result.error);
     }

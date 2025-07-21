@@ -47,7 +47,6 @@ export const RoomManager: React.FC<RoomManagerProps> = ({
 
   const handleCreateRoom = () => {
     onCreateRoom();
-    setShowCreateRoom(false);
   };
 
   const copyRoomLink = async () => {

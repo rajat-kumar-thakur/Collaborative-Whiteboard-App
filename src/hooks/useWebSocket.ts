@@ -48,7 +48,23 @@ export const useWebSocket = (
         // Handle server-specific messages
         switch (message.type) {
           case 'room_created':
-            console.log('🏠 Room created:', message.data);
+            const roomCreatedData = message.data as any;
+            console.log('🏠 Room created:', roomCreatedData);
+            // Auto-join the created room
+            if (roomCreatedData.roomId) {
+              setCurrentRoom(roomCreatedData.roomId);
+              // Send join message for the created room
+              const joinMessage = {
+                type: 'join_room',
+                data: { name: `User ${userId.slice(0, 6)}` },
+                userId,
+                roomId: roomCreatedData.roomId,
+                timestamp: Date.now()
+              };
+              if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify(joinMessage));
+              }
+            }
             break;
             
           case 'room_joined':

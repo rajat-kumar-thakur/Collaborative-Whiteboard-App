@@ -132,6 +132,7 @@ function App() {
   };
 
   const handleCreateRoom = () => {
+    console.log('Creating room...');
     createRoom();
   };
 
