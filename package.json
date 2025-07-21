@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "node src/server/websocketServer.js"
+    "server": "node src/server/websocketServer.js",
+    "dev:server": "nodemon src/server/websocketServer.js"
   },
   "dependencies": {
     "lucide-react": "^0.344.0",
@@ -33,6 +34,7 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.11",
     "globals": "^15.9.0",
+    "nodemon": "^3.1.10",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",

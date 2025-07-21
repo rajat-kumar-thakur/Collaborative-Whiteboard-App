@@ -3,6 +3,7 @@ import { ThemeProvider } from './components/ThemeProvider';
 import { DrawingCanvas } from './components/DrawingCanvas';
 import { Toolbar } from './components/Toolbar';
 import { UserList } from './components/UserList';
+import { RoomManager } from './components/RoomManager';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useDrawingStore } from './store/drawingStore';
 import { useThemeStore } from './store/themeStore';
@@ -29,22 +30,12 @@ function App() {
     setViewport,
     resetViewport,
     canUndo,
-    undo
+    undo,
+    clearCanvas
   } = useDrawingStore();
 
   const handleWebSocketMessage = useCallback((message: WebSocketMessage) => {
     switch (message.type) {
-      case 'initial_state': {
-        // Handle initial state from server
-        const stateData = message.data as DrawingState;
-        if (stateData.elements) {
-          stateData.elements.forEach((element: DrawingElement) => addElement(element));
-        }
-        if (stateData.users) {
-          setUsers(stateData.users);
-        }
-        break;
-      }
 
       case 'element_added':
         if (message.userId !== userId) {
@@ -58,6 +49,12 @@ function App() {
         }
         break;
 
+      case 'canvas_cleared':
+        if (message.userId !== userId) {
+          clearCanvas();
+        }
+        break;
+
       case 'cursor_moved':
         if (message.userId !== userId) {
           const cursorData = message.data as { position: Point };
@@ -65,17 +62,21 @@ function App() {
         }
         break;
 
-      case 'user_joined':
-        console.log('User joined:', message.data);
-        break;
-
-      case 'user_left':
-        console.log('User left:', message.data);
+      default:
+        // Other messages are handled in useWebSocket
         break;
     }
-  }, [userId, addElement, removeElement, setUsers, updateUser]);
+  }, [userId, addElement, removeElement, updateUser, clearCanvas]);
 
-  const { isConnected, users: wsUsers, sendMessage } = useWebSocket(userId, handleWebSocketMessage);
+  const { 
+    isConnected, 
+    users: wsUsers, 
+    currentRoom,
+    sendMessage,
+    createRoom,
+    joinRoom,
+    error
+  } = useWebSocket(userId, handleWebSocketMessage);
 
   useEffect(() => {
     setUsers(wsUsers);
@@ -119,19 +120,60 @@ function App() {
   };
 
   const handleClearCanvas = () => {
-    // Clear all elements from the store
-    useDrawingStore.getState().clearCanvas();
+    clearCanvas();
+    sendMessage({
+      type: 'clear_canvas',
+      data: {}
+    });
   };
 
   const handleToggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
+  const handleCreateRoom = () => {
+    createRoom();
+  };
+
+  const handleJoinRoom = (roomId: string) => {
+    joinRoom(roomId, { name: `User ${userId.slice(0, 6)}` });
+  };
+
+  // Show room manager if not in a room
+  if (!currentRoom) {
+    return (
+      <ThemeProvider>
+        <div className={`w-full h-screen transition-colors duration-300 ${
+          isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+        }`}>
+          <RoomManager
+            onJoinRoom={handleJoinRoom}
+            onCreateRoom={handleCreateRoom}
+            isConnected={isConnected}
+            currentRoom={currentRoom}
+          />
+        </div>
+      </ThemeProvider>
+    );
+  }
   return (
     <ThemeProvider>
       <div className={`w-full h-screen overflow-hidden relative transition-colors duration-300 ${
         isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
       }`}>
+        {/* Error Display */}
+        {error && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+            <div className={`px-4 py-2 rounded-xl text-sm font-medium shadow-lg backdrop-blur-sm border ${
+              isDarkMode
+                ? 'bg-red-900/50 text-red-400 border-red-700'
+                : 'bg-red-50/90 text-red-700 border-red-200'
+            }`}>
+              {error}
+            </div>
+          </div>
+        )}
+
         {/* Connection Status */}
         <div className="fixed bottom-4 left-4 z-20">
           <div className={`px-4 py-2 rounded-xl text-sm font-medium shadow-lg backdrop-blur-sm border transition-all duration-200 ${
@@ -153,6 +195,14 @@ function App() {
             </div>
           </div>
         </div>
+
+        {/* Room Manager for current room */}
+        <RoomManager
+          onJoinRoom={handleJoinRoom}
+          onCreateRoom={handleCreateRoom}
+          isConnected={isConnected}
+          currentRoom={currentRoom}
+        />
 
         {/* Main Canvas */}
         <DrawingCanvas
