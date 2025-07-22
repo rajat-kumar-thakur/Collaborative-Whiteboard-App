@@ -410,7 +410,7 @@ class CollaborativeDrawingServer {
   }
 
   start(port = 3001) {
-    this.server.listen(port, () => {
+    this.server.listen(port, '0.0.0.0', () => {
       console.log(`🚀 Collaborative Drawing Server running on port ${port}`);
       console.log(`💾 Database integration enabled`);
       console.log(`🔗 WebSocket endpoint: ws://localhost:${port}`);
