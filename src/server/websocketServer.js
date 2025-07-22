@@ -1,12 +1,14 @@
 import WebSocket, { WebSocketServer } from 'ws';
 import http from 'http';
 import DatabaseManager from './database.js';
+import RoomManager from './roomManager.js';
 
 class CollaborativeDrawingServer {
   constructor() {
     this.server = http.createServer();
     this.wss = new WebSocketServer({ server: this.server });
     this.db = new DatabaseManager();
+    this.roomManager = this.db.memoryMode ? new RoomManager() : null;
     this.clients = new Map(); // userId -> { ws, roomId, lastSeen }
     this.roomCursors = new Map(); // roomId -> Map(userId -> cursor)
     
@@ -92,24 +94,16 @@ class CollaborativeDrawingServer {
 
   async handleCreateRoom(ws, userId, data) {
     try {
-      let roomId;
-      let attempts = 0;
-      let result;
-
-      // Generate unique room ID
-      do {
-        roomId = this.db.generateRoomId();
-        result = await this.db.createRoom(roomId, data);
-        attempts++;
-      } while (!result.success && attempts < 10);
-
-      if (result.success) {
+      if (this.db.memoryMode) {
+        const roomId = this.roomManager.generateRoomId();
+        const room = this.roomManager.createRoom(roomId, data);
+        
         this.sendToClient(ws, {
           type: 'room_created',
           data: {
             roomId: roomId,
             roomUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}?room=${roomId}`,
-            room: result.room
+            room: room
           },
           userId: 'server',
           timestamp: Date.now()
@@ -117,7 +111,33 @@ class CollaborativeDrawingServer {
         
         console.log(`Room ${roomId} created successfully`);
       } else {
-        this.sendError(ws, 'Failed to create room after multiple attempts');
+        let roomId;
+        let attempts = 0;
+        let result;
+
+        // Generate unique room ID
+        do {
+          roomId = this.db.generateRoomId();
+          result = await this.db.createRoom(roomId, data);
+          attempts++;
+        } while (!result.success && attempts < 10);
+
+        if (result.success) {
+          this.sendToClient(ws, {
+            type: 'room_created',
+            data: {
+              roomId: roomId,
+              roomUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}?room=${roomId}`,
+              room: result.room
+            },
+            userId: 'server',
+            timestamp: Date.now()
+          });
+          
+          console.log(`Room ${roomId} created successfully`);
+        } else {
+          this.sendError(ws, 'Failed to create room after multiple attempts');
+        }
       }
     } catch (error) {
       console.error('Error in handleCreateRoom:', error);
@@ -132,12 +152,111 @@ class CollaborativeDrawingServer {
         return;
       }
 
-      // Check if room exists, create if it doesn't
-      let room = await this.db.getRoom(roomId);
-      if (!room) {
-        const createResult = await this.db.createRoom(roomId);
-        if (!createResult.success) {
-          this.sendError(ws, createResult.error);
+      if (this.db.memoryMode) {
+        // Check if room exists, create if it doesn't
+        let room = this.roomManager.getRoom(roomId);
+        if (!room) {
+          room = this.roomManager.createRoom(roomId);
+        }
+
+        // Add user to room
+        const user = this.roomManager.addUserToRoom(roomId, userId, userData || {});
+        
+        // Store client connection info
+        this.clients.set(userId, { ws, roomId, lastSeen: Date.now() });
+
+        // Initialize room cursors if needed
+        if (!this.roomCursors.has(roomId)) {
+          this.roomCursors.set(roomId, new Map());
+        }
+
+        // Get room data
+        const elements = this.roomManager.getRoomElements(roomId);
+        const users = this.roomManager.getRoomUsers(roomId);
+
+        // Send current room state to new user
+        this.sendToClient(ws, {
+          type: 'room_joined',
+          data: {
+            roomId,
+            elements,
+            users,
+            user: user
+          },
+          userId: 'server',
+          timestamp: Date.now()
+        });
+
+        // Notify other users in the room
+        this.broadcastToRoom(roomId, {
+          type: 'user_joined',
+          data: user,
+          userId: 'server',
+          timestamp: Date.now()
+        }, userId);
+
+        console.log(`User ${userId} joined room ${roomId}`);
+      } else {
+        // Check if room exists, create if it doesn't
+        let room = await this.db.getRoom(roomId);
+        if (!room) {
+          const createResult = await this.db.createRoom(roomId);
+          if (!createResult.success) {
+            this.sendError(ws, createResult.error);
+            return;
+          }
+          room = createResult.room;
+        }
+
+        // Add user to room
+        const result = await this.db.addUserToRoom(roomId, userId, userData || {});
+        
+        if (result.success) {
+          // Store client connection info
+          this.clients.set(userId, { ws, roomId, lastSeen: Date.now() });
+
+          // Initialize room cursors if needed
+          if (!this.roomCursors.has(roomId)) {
+            this.roomCursors.set(roomId, new Map());
+          }
+
+          // Get room data
+          const [elements, users] = await Promise.all([
+            this.db.getRoomElements(roomId),
+            this.db.getRoomUsers(roomId)
+          ]);
+
+          // Send current room state to new user
+          this.sendToClient(ws, {
+            type: 'room_joined',
+            data: {
+              roomId,
+              elements,
+              users,
+              user: result.user
+            },
+            userId: 'server',
+            timestamp: Date.now()
+          });
+
+          // Notify other users in the room
+          this.broadcastToRoom(roomId, {
+            type: 'user_joined',
+            data: result.user,
+            userId: 'server',
+            timestamp: Date.now()
+          }, userId);
+
+          console.log(`User ${userId} joined room ${roomId}`);
+        } else {
+          this.sendError(ws, result.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error in handleJoinRoom:', error);
+      this.sendError(ws, 'Failed to join room');
+    }
+  }
           return;
         }
         room = createResult.room;
@@ -194,7 +313,12 @@ class CollaborativeDrawingServer {
 
   async handleLeaveRoom(ws, userId, roomId) {
     try {
-      const removed = await this.db.removeUserFromRoom(roomId, userId);
+      let removed;
+      if (this.db.memoryMode) {
+        removed = this.roomManager.removeUserFromRoom(roomId, userId);
+      } else {
+        removed = await this.db.removeUserFromRoom(roomId, userId);
+      }
       
       if (removed) {
         this.clients.delete(userId);
@@ -221,7 +345,12 @@ class CollaborativeDrawingServer {
 
   async handleElementAdded(ws, userId, roomId, elementData) {
     try {
-      const result = await this.db.addElement(roomId, elementData);
+      let result;
+      if (this.db.memoryMode) {
+        result = { success: this.roomManager.addElement(roomId, elementData) };
+      } else {
+        result = await this.db.addElement(roomId, elementData);
+      }
       
       if (result.success) {
         this.broadcastToRoom(roomId, {
@@ -241,7 +370,12 @@ class CollaborativeDrawingServer {
 
   async handleElementUpdated(ws, userId, roomId, elementData) {
     try {
-      const result = await this.db.updateElement(roomId, elementData.id, elementData);
+      let result;
+      if (this.db.memoryMode) {
+        result = { success: this.roomManager.updateElement(roomId, elementData.id, elementData) };
+      } else {
+        result = await this.db.updateElement(roomId, elementData.id, elementData);
+      }
       
       if (result.success) {
         this.broadcastToRoom(roomId, {
@@ -261,7 +395,12 @@ class CollaborativeDrawingServer {
 
   async handleElementDeleted(ws, userId, roomId, elementId) {
     try {
-      const success = await this.db.removeElement(roomId, elementId);
+      let success;
+      if (this.db.memoryMode) {
+        success = this.roomManager.removeElement(roomId, elementId);
+      } else {
+        success = await this.db.removeElement(roomId, elementId);
+      }
       
       if (success) {
         this.broadcastToRoom(roomId, {
@@ -288,7 +427,11 @@ class CollaborativeDrawingServer {
       this.roomCursors.get(roomId).set(userId, cursorData.position);
 
       // Update user activity
-      await this.db.updateUserActivity(roomId, userId);
+      if (this.db.memoryMode) {
+        this.roomManager.updateUserActivity(roomId, userId);
+      } else {
+        await this.db.updateUserActivity(roomId, userId);
+      }
       
       this.broadcastToRoom(roomId, {
         type: 'cursor_moved',
@@ -303,7 +446,12 @@ class CollaborativeDrawingServer {
 
   async handleClearCanvas(ws, userId, roomId) {
     try {
-      const success = await this.db.clearRoomElements(roomId);
+      let success;
+      if (this.db.memoryMode) {
+        success = this.roomManager.clearRoomElements(roomId);
+      } else {
+        success = await this.db.clearRoomElements(roomId);
+      }
       
       if (success) {
         this.broadcastToRoom(roomId, {
@@ -323,7 +471,12 @@ class CollaborativeDrawingServer {
 
   async handleGetRooms(ws) {
     try {
-      const stats = await this.db.getRoomStats();
+      let stats;
+      if (this.db.memoryMode) {
+        stats = this.roomManager.getRoomStats();
+      } else {
+        stats = await this.db.getRoomStats();
+      }
       this.sendToClient(ws, {
         type: 'rooms_list',
         data: stats,
@@ -383,9 +536,11 @@ class CollaborativeDrawingServer {
 
   startCleanupInterval() {
     // Clean up inactive rooms every hour
-    setInterval(async () => {
-      await this.db.cleanupInactiveRooms();
-    }, 60 * 60 * 1000);
+    if (!this.db.memoryMode) {
+      setInterval(async () => {
+        await this.db.cleanupInactiveRooms();
+      }, 60 * 60 * 1000);
+    }
 
     // Update client last seen every 30 seconds
     setInterval(() => {
@@ -400,7 +555,12 @@ class CollaborativeDrawingServer {
 
     // Log server stats every 10 minutes
     setInterval(async () => {
-      const stats = await this.db.getRoomStats();
+      let stats;
+      if (this.db.memoryMode) {
+        stats = this.roomManager.getRoomStats();
+      } else {
+        stats = await this.db.getRoomStats();
+      }
       console.log('📊 Server Stats:', {
         ...stats,
         connectedClients: this.clients.size,
@@ -418,7 +578,12 @@ class CollaborativeDrawingServer {
   }
 
   async getServerStats() {
-    const dbStats = await this.db.getRoomStats();
+    let dbStats;
+    if (this.db.memoryMode) {
+      dbStats = this.roomManager.getRoomStats();
+    } else {
+      dbStats = await this.db.getRoomStats();
+    }
     return {
       ...dbStats,
       connectedClients: this.clients.size,
