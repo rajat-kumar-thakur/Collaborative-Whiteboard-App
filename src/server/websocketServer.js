@@ -502,7 +502,12 @@ class CollaborativeDrawingServer {
 
     // Log server stats every 10 minutes
     setInterval(async () => {
-      const stats = await this.db.getRoomStats();
+      let stats;
+      if (this.db.memoryMode) {
+        stats = this.roomManager.getRoomStats();
+      } else {
+        stats = await this.db.getRoomStats();
+      }
       console.log('📊 Server Stats:', {
         ...stats,
         connectedClients: this.clients.size,
@@ -520,7 +525,12 @@ class CollaborativeDrawingServer {
   }
 
   async getServerStats() {
-    const dbStats = await this.db.getRoomStats();
+    let dbStats;
+    if (this.db.memoryMode) {
+      dbStats = this.roomManager.getRoomStats();
+    } else {
+      dbStats = await this.db.getRoomStats();
+    }
     return {
       ...dbStats,
       connectedClients: this.clients.size,
