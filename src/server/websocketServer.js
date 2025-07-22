@@ -374,11 +374,7 @@ class CollaborativeDrawingServer {
       this.roomCursors.get(roomId).set(userId, cursorData.position);
 
       // Update user activity
-      if (this.db.memoryMode) {
-        this.roomManager.updateUserActivity(roomId, userId);
-      } else {
-        await this.db.updateUserActivity(roomId, userId);
-      }
+      await this.db.updateUserActivity(roomId, userId);
       
       this.broadcastToRoom(roomId, {
         type: 'cursor_moved',
@@ -393,12 +389,7 @@ class CollaborativeDrawingServer {
 
   async handleClearCanvas(ws, userId, roomId) {
     try {
-      let success;
-      if (this.db.memoryMode) {
-        success = this.roomManager.clearRoomElements(roomId);
-      } else {
-        success = await this.db.clearRoomElements(roomId);
-      }
+      const success = await this.db.clearRoomElements(roomId);
       
       if (success) {
         this.broadcastToRoom(roomId, {
@@ -418,12 +409,7 @@ class CollaborativeDrawingServer {
 
   async handleGetRooms(ws) {
     try {
-      let stats;
-      if (this.db.memoryMode) {
-        stats = this.roomManager.getRoomStats();
-      } else {
-        stats = await this.db.getRoomStats();
-      }
+      const stats = await this.db.getRoomStats();
       this.sendToClient(ws, {
         type: 'rooms_list',
         data: stats,
@@ -483,11 +469,9 @@ class CollaborativeDrawingServer {
 
   startCleanupInterval() {
     // Clean up inactive rooms every hour
-    if (!this.db.memoryMode) {
-      setInterval(async () => {
-        await this.db.cleanupInactiveRooms();
-      }, 60 * 60 * 1000);
-    }
+    setInterval(async () => {
+      await this.db.cleanupInactiveRooms();
+    }, 60 * 60 * 1000);
 
     // Update client last seen every 30 seconds
     setInterval(() => {
@@ -502,12 +486,7 @@ class CollaborativeDrawingServer {
 
     // Log server stats every 10 minutes
     setInterval(async () => {
-      let stats;
-      if (this.db.memoryMode) {
-        stats = this.roomManager.getRoomStats();
-      } else {
-        stats = await this.db.getRoomStats();
-      }
+      const stats = await this.db.getRoomStats();
       console.log('📊 Server Stats:', {
         ...stats,
         connectedClients: this.clients.size,
@@ -525,12 +504,7 @@ class CollaborativeDrawingServer {
   }
 
   async getServerStats() {
-    let dbStats;
-    if (this.db.memoryMode) {
-      dbStats = this.roomManager.getRoomStats();
-    } else {
-      dbStats = await this.db.getRoomStats();
-    }
+    const dbStats = await this.db.getRoomStats();
     return {
       ...dbStats,
       connectedClients: this.clients.size,
