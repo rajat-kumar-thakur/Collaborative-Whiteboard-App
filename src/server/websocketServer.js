@@ -292,7 +292,12 @@ class CollaborativeDrawingServer {
 
   async handleElementAdded(ws, userId, roomId, elementData) {
     try {
-      const result = await this.db.addElement(roomId, elementData);
+      let result;
+      if (this.db.memoryMode) {
+        result = { success: this.roomManager.addElement(roomId, elementData) };
+      } else {
+        result = await this.db.addElement(roomId, elementData);
+      }
       
       if (result.success) {
         this.broadcastToRoom(roomId, {
@@ -312,7 +317,12 @@ class CollaborativeDrawingServer {
 
   async handleElementUpdated(ws, userId, roomId, elementData) {
     try {
-      const result = await this.db.updateElement(roomId, elementData.id, elementData);
+      let result;
+      if (this.db.memoryMode) {
+        result = { success: this.roomManager.updateElement(roomId, elementData.id, elementData) };
+      } else {
+        result = await this.db.updateElement(roomId, elementData.id, elementData);
+      }
       
       if (result.success) {
         this.broadcastToRoom(roomId, {
@@ -332,7 +342,12 @@ class CollaborativeDrawingServer {
 
   async handleElementDeleted(ws, userId, roomId, elementId) {
     try {
-      const success = await this.db.removeElement(roomId, elementId);
+      let success;
+      if (this.db.memoryMode) {
+        success = this.roomManager.removeElement(roomId, elementId);
+      } else {
+        success = await this.db.removeElement(roomId, elementId);
+      }
       
       if (success) {
         this.broadcastToRoom(roomId, {
@@ -359,7 +374,11 @@ class CollaborativeDrawingServer {
       this.roomCursors.get(roomId).set(userId, cursorData.position);
 
       // Update user activity
-      await this.db.updateUserActivity(roomId, userId);
+      if (this.db.memoryMode) {
+        this.roomManager.updateUserActivity(roomId, userId);
+      } else {
+        await this.db.updateUserActivity(roomId, userId);
+      }
       
       this.broadcastToRoom(roomId, {
         type: 'cursor_moved',
@@ -374,7 +393,12 @@ class CollaborativeDrawingServer {
 
   async handleClearCanvas(ws, userId, roomId) {
     try {
-      const success = await this.db.clearRoomElements(roomId);
+      let success;
+      if (this.db.memoryMode) {
+        success = this.roomManager.clearRoomElements(roomId);
+      } else {
+        success = await this.db.clearRoomElements(roomId);
+      }
       
       if (success) {
         this.broadcastToRoom(roomId, {
@@ -394,7 +418,12 @@ class CollaborativeDrawingServer {
 
   async handleGetRooms(ws) {
     try {
-      const stats = await this.db.getRoomStats();
+      let stats;
+      if (this.db.memoryMode) {
+        stats = this.roomManager.getRoomStats();
+      } else {
+        stats = await this.db.getRoomStats();
+      }
       this.sendToClient(ws, {
         type: 'rooms_list',
         data: stats,
@@ -454,9 +483,11 @@ class CollaborativeDrawingServer {
 
   startCleanupInterval() {
     // Clean up inactive rooms every hour
-    setInterval(async () => {
-      await this.db.cleanupInactiveRooms();
-    }, 60 * 60 * 1000);
+    if (!this.db.memoryMode) {
+      setInterval(async () => {
+        await this.db.cleanupInactiveRooms();
+      }, 60 * 60 * 1000);
+    }
 
     // Update client last seen every 30 seconds
     setInterval(() => {
