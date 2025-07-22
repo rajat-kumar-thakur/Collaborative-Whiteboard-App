@@ -6,10 +6,15 @@ class DatabaseManager {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Missing Supabase environment variables');
+      console.warn('⚠️  Supabase environment variables not found. Running in memory-only mode.');
+      console.warn('   To enable database persistence, please set up Supabase connection.');
+      this.supabase = null;
+      this.memoryMode = true;
+      return;
     }
 
     this.supabase = createClient(supabaseUrl, supabaseKey);
+    this.memoryMode = false;
     console.log('✅ Database connection established');
   }
 
