@@ -292,12 +292,7 @@ class CollaborativeDrawingServer {
 
   async handleElementAdded(ws, userId, roomId, elementData) {
     try {
-      let result;
-      if (this.db.memoryMode) {
-        result = { success: this.roomManager.addElement(roomId, elementData) };
-      } else {
-        result = await this.db.addElement(roomId, elementData);
-      }
+      const result = await this.db.addElement(roomId, elementData);
       
       if (result.success) {
         this.broadcastToRoom(roomId, {
