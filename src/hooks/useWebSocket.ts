@@ -10,6 +10,7 @@ interface UseWebSocketReturn {
   joinRoom: (roomId: string, userData?: any) => void;
   leaveRoom: () => void;
   error: string | null;
+  rooms: any[]; // Add rooms to the return type
 }
 
 export const useWebSocket = (
@@ -20,6 +21,7 @@ export const useWebSocket = (
   const [users, setUsers] = useState<User[]>([]);
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rooms, setRooms] = useState<any[]>([]); // Add rooms state
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttempts = useRef(0);
@@ -65,6 +67,9 @@ export const useWebSocket = (
                 wsRef.current.send(JSON.stringify(joinMessage));
               }
             }
+            break;
+          case 'rooms_list':
+            setRooms(message.data || []);
             break;
             
           case 'room_joined':
@@ -194,6 +199,7 @@ export const useWebSocket = (
     createRoom,
     joinRoom,
     leaveRoom,
-    error
+    error,
+    rooms // Return rooms
   };
 };

@@ -172,6 +172,16 @@ class RoomManager {
       rooms: this.getRoomsList()
     };
   }
+
+  getRoomElements(roomId) {
+    const room = this.rooms.get(roomId);
+    return room ? room.elements : [];
+  }
+
+  getRoomUsers(roomId) {
+    const room = this.rooms.get(roomId);
+    return room ? Array.from(room.users.values()) : [];
+  }
 }
 
 export default RoomManager;

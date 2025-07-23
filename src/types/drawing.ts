@@ -35,9 +35,40 @@ export interface DrawingState {
   };
 }
 
+export interface RoomListItem {
+  id: string;
+  userCount: number;
+  createdAt: number;
+  lastActivity: number;
+  isPublic: boolean;
+}
+
+export interface ErrorMessage {
+  message: string;
+}
+
 export interface WebSocketMessage {
-  type: 'initial_state' | 'element_added' | 'element_updated' | 'element_deleted' | 'cursor_moved' | 'user_joined' | 'user_left';
-  data: DrawingElement | DrawingState | { position: Point } | User | string;
+  type:
+    | 'initial_state'
+    | 'element_added'
+    | 'element_updated'
+    | 'element_deleted'
+    | 'cursor_moved'
+    | 'user_joined'
+    | 'user_left'
+    | 'room_created'
+    | 'rooms_list'
+    | 'room_joined'
+    | 'error';
+  data:
+    | DrawingElement
+    | DrawingState
+    | { position: Point }
+    | User
+    | string
+    | RoomListItem[]
+    | ErrorMessage
+    | { [key: string]: any };
   userId: string;
   timestamp: number;
 }

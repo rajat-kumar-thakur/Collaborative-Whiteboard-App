@@ -4,7 +4,6 @@ import {
   Users, 
   Copy, 
   ExternalLink, 
-  Clock,
   Hash,
   CheckCircle,
   AlertCircle
@@ -26,8 +25,8 @@ export const RoomManager: React.FC<RoomManagerProps> = ({
 }) => {
   const { isDarkMode } = useThemeStore();
   const [roomId, setRoomId] = useState('');
-  const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Get room ID from URL on component mount
   useEffect(() => {
@@ -41,12 +40,26 @@ export const RoomManager: React.FC<RoomManagerProps> = ({
 
   const handleJoinRoom = () => {
     if (roomId.trim()) {
+      setError(null);
       onJoinRoom(roomId.trim().toUpperCase());
+    } else {
+      setError('Please enter a valid room code.');
     }
   };
 
   const handleCreateRoom = () => {
+    setError(null);
     onCreateRoom();
+  };
+
+  const handleRandomRoom = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setRoomId(result);
+    setError(null);
   };
 
   const copyRoomLink = async () => {
@@ -161,6 +174,17 @@ export const RoomManager: React.FC<RoomManagerProps> = ({
           )}
 
           <div className="space-y-4">
+            {/* Error Display */}
+            {error && (
+              <div className={`mb-2 p-2 rounded-lg border flex items-center space-x-2 ${
+                isDarkMode
+                  ? 'bg-red-900/20 border-red-700 text-red-400'
+                  : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                <AlertCircle size={16} />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
             {/* Join Room */}
             <div>
               <label className={`block text-sm font-medium mb-2 ${
@@ -172,7 +196,7 @@ export const RoomManager: React.FC<RoomManagerProps> = ({
                 <input
                   type="text"
                   value={roomId}
-                  onChange={(e) => setRoomId(e.target.value.toUpperCase())}
+                  onChange={(e) => { setRoomId(e.target.value.toUpperCase()); setError(null); }}
                   onKeyPress={(e) => e.key === 'Enter' && handleJoinRoom()}
                   placeholder="Enter room code (e.g., ABC123)"
                   className={`flex-1 px-4 py-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
@@ -195,6 +219,22 @@ export const RoomManager: React.FC<RoomManagerProps> = ({
                   }`}
                 >
                   Join
+                </button>
+                <button
+                  onClick={handleRandomRoom}
+                  disabled={!isConnected}
+                  className={`px-3 py-3 rounded-lg font-medium transition-all duration-200 ${
+                    isConnected
+                      ? isDarkMode
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white'
+                      : isDarkMode
+                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  }`}
+                  title="Generate random room code"
+                >
+                  <Plus size={16} />
                 </button>
               </div>
             </div>

@@ -3,6 +3,8 @@ import http from 'http';
 import DatabaseManager from './database.js';
 import RoomManager from './roomManager.js';
 
+const TRUSTED_ORIGIN = process.env.CLIENT_URL || 'http://localhost:5173';
+
 class CollaborativeDrawingServer {
   constructor() {
     this.server = http.createServer();
@@ -18,6 +20,13 @@ class CollaborativeDrawingServer {
 
   setupWebSocketHandlers() {
     this.wss.on('connection', (ws, req) => {
+      // WebSocket origin check
+      const origin = req.headers.origin;
+      if (origin && origin !== TRUSTED_ORIGIN) {
+        ws.close(1008, 'Origin not allowed');
+        console.warn(`Rejected WS connection from origin: ${origin}`);
+        return;
+      }
       console.log('New client connected');
       
       ws.on('message', (data) => {
@@ -96,20 +105,30 @@ class CollaborativeDrawingServer {
     try {
       if (this.db.memoryMode) {
         const roomId = this.roomManager.generateRoomId();
-        const room = this.roomManager.createRoom(roomId, data);
-        
-        this.sendToClient(ws, {
-          type: 'room_created',
-          data: {
-            roomId: roomId,
-            roomUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}?room=${roomId}`,
-            room: room
-          },
-          userId: 'server',
-          timestamp: Date.now()
-        });
-        
-        console.log(`Room ${roomId} created successfully`);
+        const result = this.roomManager.createRoom(roomId, data);
+        if (result.success) {
+          this.sendToClient(ws, {
+            type: 'room_created',
+            data: {
+              roomId: result.roomId,
+              roomUrl: `${process.env.CLIENT_URL || 'http://localhost:5173'}?room=${result.roomId}`,
+              room: result.room
+            },
+            userId: 'server',
+            timestamp: Date.now()
+          });
+          console.log(`Room ${result.roomId} created successfully`);
+          // Broadcast updated room list to all clients
+          const stats = await this.db.getRoomStats();
+          this.broadcastToAllClients({
+            type: 'rooms_list',
+            data: stats,
+            userId: 'server',
+            timestamp: Date.now()
+          });
+        } else {
+          this.sendError(ws, result.error || 'Failed to create room');
+        }
       } else {
         let roomId;
         let attempts = 0;
@@ -135,6 +154,14 @@ class CollaborativeDrawingServer {
           });
           
           console.log(`Room ${roomId} created successfully`);
+          // Broadcast updated room list to all clients
+          const stats = await this.db.getRoomStats();
+          this.broadcastToAllClients({
+            type: 'rooms_list',
+            data: stats,
+            userId: 'server',
+            timestamp: Date.now()
+          });
         } else {
           this.sendError(ws, 'Failed to create room after multiple attempts');
         }
@@ -439,6 +466,20 @@ class CollaborativeDrawingServer {
       if (client.roomId === roomId && 
           userId !== excludeUserId && 
           client.ws.readyState === WebSocket.OPEN) {
+        try {
+          client.ws.send(messageStr);
+        } catch (error) {
+          console.error('Error broadcasting to user:', userId, error);
+        }
+      }
+    }
+  }
+
+  // Broadcast a message to all connected clients
+  broadcastToAllClients(message) {
+    const messageStr = JSON.stringify(message);
+    for (const [userId, client] of this.clients.entries()) {
+      if (client.ws.readyState === WebSocket.OPEN) {
         try {
           client.ws.send(messageStr);
         } catch (error) {
