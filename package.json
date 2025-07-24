@@ -1,0 +1,13 @@
+{
+  "name": "Collaborative-Whiteboard",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/rajat-kumar-thakur/Collaborative-Whiteboard-App.git",
+  "author": "acevaliant <202211070@diu.iiitvadodara.ac.in>",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
